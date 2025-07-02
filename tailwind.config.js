@@ -7,7 +7,15 @@ module.exports = {
     './config/**/*.py',
   ],
   theme: {
-    extend: {},
+    extend: {
+      colors: {
+        'primary-blue': '#1A55E3',
+        'primary-red': '#FF0854',
+        'supporting-green': '#00D284',
+        'supporting-cyan': '#0DCAF0',
+        'supporting-purple': '#5E6EED',
+      },
+    },
   },
   plugins: [],
 }
