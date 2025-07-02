@@ -67,8 +67,12 @@ def player_form_view(request, team_id, player_id=None):
     """
     team = get_object_or_404(Team, pk=team_id)
 
-    # Check if the logged-in user is associated with this team
-    if not request.user.is_superuser and (not hasattr(request.user, 'profile') or request.user.profile.team != team):
+    # Authorization check
+    user_team = None
+    if hasattr(request.user, 'profile') and request.user.profile.team:
+        user_team = request.user.profile.team
+
+    if not request.user.is_superuser and user_team != team:
         return HttpResponseForbidden("You are not authorized to modify players for this team.")
 
     player = None
@@ -134,7 +138,14 @@ def team_detail(request, team_id):
         )
         # Replace None values with 0 for players with no stats yet
         player.stats = {k: v if v is not None else 0 for k, v in stats.items()}
-    return render(request, 'futbolapp/team_detail.html', {'team': team, 'players': players, 'league': league, 'active_tab': 'teams'})
+    
+    user_can_edit = False
+    if request.user.is_superuser:
+        user_can_edit = True
+    elif hasattr(request.user, 'profile') and request.user.profile.team == team:
+        user_can_edit = True
+
+    return render(request, 'futbolapp/team_detail.html', {'team': team, 'players': players, 'league': league, 'active_tab': 'teams', 'user_can_edit': user_can_edit})
 
 @login_required
 def league_standings_view(request, league_id, season_id):

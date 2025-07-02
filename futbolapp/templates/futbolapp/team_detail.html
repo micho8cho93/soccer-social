@@ -21,7 +21,13 @@
                 <tbody class="bg-white divide-y divide-gray-200">
                     {% for player in players %}
                         <tr>
-                            <td class="px-6 py-4 whitespace-nowrap"><a href="{% url 'player_edit' team.id player.id %}" class="text-primary-blue hover:text-primary-red font-semibold">{{ player.name }}</a></td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                {% if user_can_edit %}
+                                    <a href="{% url 'player_edit' team.id player.id %}" class="text-primary-blue hover:text-primary-red font-semibold">{{ player.name }}</a>
+                                {% else %}
+                                    {{ player.name }}
+                                {% endif %}
+                            </td>
                             <td class="px-6 py-4 whitespace-nowrap">{{ player.get_field_position_display }}</td>
                             <td class="px-6 py-4 whitespace-nowrap">{{ player.get_role_display }}</td>
                             <td class="px-6 py-4 whitespace-nowrap">{{ player.stats.total_goals }}</td>
@@ -39,9 +45,15 @@
             </table>
         </div>
         <div class="text-center">
-            <a href="{% url 'player_add' team.id %}" class="bg-primary-blue hover:bg-primary-red text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
-                Add New Player
-            </a>
+            {% if user_can_edit %}
+                <a href="{% url 'player_add' team.id %}" class="bg-primary-blue hover:bg-primary-red text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                    Add New Player
+                </a>
+            {% else %}
+                <button disabled class="bg-gray-300 text-gray-500 font-bold py-2 px-4 rounded cursor-not-allowed">
+                    Add New Player
+                </button>
+            {% endif %}
         </div>
     </div>
 {% endblock %}
