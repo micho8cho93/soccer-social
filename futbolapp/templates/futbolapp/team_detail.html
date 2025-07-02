@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1>{{ team.name }}</h1>
+    <h2>Players</h2>
+    <ul>
+        {% for player in players %}
+            <li>
+                <strong>{{ player.name }}</strong> ({{ player.get_role_display }})
+                <ul>
+                    <li>Goals: {{ player.stats.total_goals }}</li>
+                    <li>Assists: {{ player.stats.total_assists }}</li>
+                    {% if player.role == 'goalkeeper' %}
+                        <li>Clean Sheets: {{ player.stats.total_clean_sheets }}</li>
+                    {% endif %}
+                    <li>Yellow Cards: {{ player.stats.total_yellow_cards }}</li>
+                    <li>Red Cards: {{ player.stats.total_red_cards }}</li>
+                </ul>
+            </li>
+        {% empty %}
+            <li>No players found for this team.</li>
+        {% endfor %}
+    </ul>
+{% endblock %}

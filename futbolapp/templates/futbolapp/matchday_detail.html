@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1>Match Day {{ matchday.number }} - {{ matchday.date }}</h1>
+    <h2>Matches</h2>
+    <ul>
+        {% for match in matches %}
+            <li>
+                {{ match.home_team.name }} vs {{ match.away_team.name }} - {{ match.date|date:"H:i" }}
+                <br>
+                Score: {{ match.home_score }} - {{ match.away_score }}
+            </li>
+        {% empty %}
+            <li>No matches scheduled for this day.</li>
+        {% endfor %}
+    </ul>
+{% endblock %}

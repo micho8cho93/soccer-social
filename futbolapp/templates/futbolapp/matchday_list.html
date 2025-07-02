@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1>Match Days</h1>
+    <ul>
+        {% for matchday in matchdays %}
+            <li>
+                <a href="{% url 'matchday_detail' matchday.id %}">
+                    Season {{ matchday.season.year }} - Match Day {{ matchday.number }} ({{ matchday.date }})
+                </a>
+            </li>
+        {% endfor %}
+    </ul>
+{% endblock %}
