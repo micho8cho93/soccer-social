@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1 class="text-3xl font-bold mb-6 text-center">Teams in {{ league.name }} - Season {{ season.year }}</h1>
+    <nav class="mb-6 p-4 bg-white rounded-lg shadow-md border border-gray-200">
+        <ul class="flex flex-wrap justify-center space-x-4">
+            {% if active_tab != 'home' %}
+                <li><a href="{% url 'league_home' league.id season.id %}" class="text-blue-600 hover:text-blue-800 font-semibold">Home</a></li>
+            {% endif %}
+            {% if active_tab != 'matchdays' %}
+                <li><a href="{% url 'league_matchday_list' league.id season.id %}" class="text-blue-600 hover:text-blue-800 font-semibold">Matchdays</a></li>
+            {% endif %}
+            {% if active_tab != 'standings' %}
+                <li><a href="{% url 'league_standings_view' league.id season.id %}" class="text-blue-600 hover:text-blue-800 font-semibold">Standings</a></li>
+            {% endif %}
+            {% if active_tab != 'leaderboard' %}
+                <li><a href="{% url 'leaderboard_view' league.id season.id %}" class="text-blue-600 hover:text-blue-800 font-semibold">Leaderboard</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+    <div class="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+        <ul class="space-y-2">
+            {% for team in teams %}
+                <li><a href="{% url 'team_detail' team.id %}" class="block p-3 bg-gray-50 hover:bg-gray-100 rounded-md border border-gray-200 text-blue-600 font-medium">{{ team.name }}</a></li>
+            {% empty %}
+                <li class="text-gray-700">No teams found for this league.</li>
+            {% endfor %}
+        </ul>
+    </div>
+{% endblock %}

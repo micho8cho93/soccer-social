@@ -59,6 +59,7 @@ class Match(models.Model):
     class Meta:
         unique_together = ('matchday', 'home_team', 'away_team')
         ordering = ['date']
+        verbose_name_plural = "Matches"
 
     def __str__(self):
         return f"{self.home_team.name} vs {self.away_team.name} on {self.date.strftime('%Y-%m-%d')}"

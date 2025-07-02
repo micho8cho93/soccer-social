@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1 class="text-2xl font-bold mb-4 text-center">Select a League and Season</h1>
+    <form method="post" id="league_season_form" class="flex flex-col items-center space-y-4">
+        {% csrf_token %}
+        <div class="w-full max-w-xs">
+            <label for="league_select" class="block text-gray-700 text-sm font-bold mb-2">League:</label>
+            <select name="league" id="league_select" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                <option value="">-- Please choose a league --</option>
+                {% for league in leagues %}
+                    <option value="{{ league.id }}">{{ league.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="w-full max-w-xs">
+            <label for="season_select" class="block text-gray-700 text-sm font-bold mb-2">Season:</label>
+            <select name="season" id="season_select" disabled class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                <option value="">-- Select a league first --</option>
+            </select>
+        </div>
+
+        <button type="submit" id="submit_button" disabled class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline border border-blue-500">
+            Go
+        </button>
+    </form>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const leagueSelect = document.getElementById('league_select');
+            const seasonSelect = document.getElementById('season_select');
+            const submitButton = document.getElementById('submit_button');
+            const form = document.getElementById('league_season_form');
+
+            leagueSelect.addEventListener('change', function() {
+                const leagueId = this.value;
+                seasonSelect.innerHTML = '<option value="">-- Loading seasons --</option>';
+                seasonSelect.disabled = true;
+                submitButton.disabled = true;
+
+                if (leagueId) {
+                    fetch(`/futbol/get_seasons/${leagueId}/`)
+                        .then(response => response.json())
+                        .then(data => {
+                            seasonSelect.innerHTML = '<option value="">-- Select a season --</option>';
+                            data.forEach(season => {
+                                const option = document.createElement('option');
+                                option.value = season.id;
+                                option.textContent = season.year;
+                                seasonSelect.appendChild(option);
+                            });
+                            seasonSelect.disabled = false;
+                        })
+                        .catch(error => {
+                            console.error('Error fetching seasons:', error);
+                            seasonSelect.innerHTML = '<option value="">-- Error loading seasons --</option>';
+                        });
+                } else {
+                    seasonSelect.innerHTML = '<option value="">-- Select a league first --</option>';
+                }
+            });
+
+            seasonSelect.addEventListener('change', function() {
+                if (this.value) {
+                    submitButton.disabled = false;
+                } else {
+                    submitButton.disabled = true;
+                }
+            });
+
+            form.addEventListener('submit', function(event) {
+                event.preventDefault();
+                const leagueId = leagueSelect.value;
+                const seasonId = seasonSelect.value;
+                if (leagueId && seasonId) {
+                    window.location.href = `/futbol/league/${leagueId}/${seasonId}/`;
+                }
+            });
+        });
+    </script>
+{% endblock %}

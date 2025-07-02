@@ -1,24 +1,42 @@
 {% extends 'base.html' %}
 
 {% block content %}
-    <h1>{{ team.name }}</h1>
-    <h2>Players</h2>
-    <ul>
-        {% for player in players %}
-            <li>
-                <strong>{{ player.name }}</strong> ({{ player.get_role_display }})
-                <ul>
-                    <li>Goals: {{ player.stats.total_goals }}</li>
-                    <li>Assists: {{ player.stats.total_assists }}</li>
-                    {% if player.role == 'goalkeeper' %}
-                        <li>Clean Sheets: {{ player.stats.total_clean_sheets }}</li>
-                    {% endif %}
-                    <li>Yellow Cards: {{ player.stats.total_yellow_cards }}</li>
-                    <li>Red Cards: {{ player.stats.total_red_cards }}</li>
-                </ul>
-            </li>
-        {% empty %}
-            <li>No players found for this team.</li>
-        {% endfor %}
-    </ul>
+    <h1 class="text-3xl font-bold mb-6 text-center">{{ team.name }}</h1>
+    <div class="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+        <h2 class="text-2xl font-semibold mb-4">Players</h2>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Field Position</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Goals</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assists</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Clean Sheets</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Yellow Cards</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Red Cards</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for player in players %}
+                        <tr>
+                            <td class="px-6 py-4 whitespace-nowrap">{{ player.name }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">{{ player.get_field_position_display }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">{{ player.get_role_display }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">{{ player.stats.total_goals }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">{{ player.stats.total_assists }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">{% if player.field_position == 'goalkeeper' %}{{ player.stats.total_clean_sheets }}{% else %}-{% endif %}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">{{ player.stats.total_yellow_cards }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">{{ player.stats.total_red_cards }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="8" class="px-6 py-4 whitespace-nowrap text-gray-700">No players found for this team.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
 {% endblock %}

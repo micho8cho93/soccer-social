@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1>Match Days for {{ league.name }}</h1>
+    <ul>
+        {% for matchday in matchdays %}
+            <li>
+                <a href="{% url 'matchday_detail' matchday.id %}">
+                    Season {{ matchday.season.year }} - Match Day {{ matchday.number }} ({{ matchday.date }})
+                </a>
+            </li>
+        {% empty %}
+            <li>No matchdays found for this league.</li>
+        {% endfor %}
+    </ul>
+{% endblock %}

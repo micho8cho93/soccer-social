@@ -1,12 +1,21 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Futbol App</title>
+    {% load static %}
+    <link href="{% static 'css/output.css' %}" rel="stylesheet">
 </head>
-<body>
-    <div class="container">
-        {% block content %}
-        {% endblock %}
+<body class="min-h-screen bg-gray-100 flex flex-col items-center justify-center">
+    <div class="w-full max-w-4xl p-4">
+        <header class="bg-blue-600 text-white p-4 rounded-t-lg">
+            <h1 class="text-2xl font-bold text-center"><a href="{% url 'league_selection' %}">Futbol App</a></h1>
+        </header>
+        <main class="bg-white p-6 rounded-b-lg shadow-md">
+            {% block content %}
+            {% endblock %}
+        </main>
     </div>
 </body>
 </html>

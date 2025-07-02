@@ -66,6 +66,17 @@ class PlayerStatisticInline(admin.TabularInline):
     model = PlayerStatistic
     extra = 1
 
+@admin.register(Match)
+class MatchAdmin(admin.ModelAdmin):
+    list_display = ('home_team', 'away_team', 'home_score', 'away_score', 'matchday', 'date')
+    list_filter = ('matchday', 'matchday__season') # Added matchday filter
+    search_fields = ('home_team__name', 'away_team__name')
+    inlines = [PlayerStatisticInline]
+
+    def save_related(self, request, form, formsets, change):
+        super().save_related(request, form, formsets, change)
+        instance = form.instance
+
 @admin.register(PlayerStatistic)
 class PlayerStatisticAdmin(admin.ModelAdmin):
     list_display = ('player', 'match', 'goals', 'assists', 'clean_sheets')
