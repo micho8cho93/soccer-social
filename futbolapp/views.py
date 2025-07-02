@@ -2,9 +2,11 @@ from django.shortcuts import render, get_object_or_404, redirect
 from .models import Matchday, Match, Team, Player, PlayerStatistic, LeagueStanding, Season, League
 from django.db.models import Sum, F
 from django.http import JsonResponse
+from django.contrib.auth.decorators import login_required
 
 # Create your views here.
 
+@login_required
 def league_selection(request):
     """
     View for selecting a league and season.
@@ -12,6 +14,7 @@ def league_selection(request):
     leagues = League.objects.all()
     return render(request, 'futbolapp/league_selection.html', {'leagues': leagues})
 
+@login_required
 def get_seasons_for_league(request, league_id):
     """
     AJAX view to get seasons for a selected league.
@@ -19,6 +22,7 @@ def get_seasons_for_league(request, league_id):
     seasons = Season.objects.filter(league_id=league_id).order_by('-year').values('id', 'year')
     return JsonResponse(list(seasons), safe=False)
 
+@login_required
 def league_home(request, league_id, season_id):
     """
     Home page for a specific league and season, with navigation options.
@@ -27,6 +31,7 @@ def league_home(request, league_id, season_id):
     season = get_object_or_404(Season, pk=season_id)
     return render(request, 'futbolapp/league_home.html', {'league': league, 'season': season, 'active_tab': 'home'})
 
+@login_required
 def team_list(request, league_id, season_id):
     """
     View for listing all teams in a specific league and season.
@@ -36,6 +41,7 @@ def team_list(request, league_id, season_id):
     teams = Team.objects.filter(league=league)
     return render(request, 'futbolapp/team_list.html', {'league': league, 'season': season, 'teams': teams, 'active_tab': 'teams'})
 
+@login_required
 def player_detail(request, player_id):
     """
     View for a single player, showing their individual statistics.
@@ -51,6 +57,7 @@ def player_detail(request, player_id):
     player.stats = {k: v if v is not None else 0 for k, v in stats.items()}
     return render(request, 'futbolapp/player_detail.html', {'player': player})
 
+@login_required
 def league_matchday_list(request, league_id, season_id):
     """
     View for listing all match days for a specific league and season, ordered by season and number.
@@ -60,6 +67,7 @@ def league_matchday_list(request, league_id, season_id):
     matchdays = Matchday.objects.filter(season=season).order_by('number')
     return render(request, 'futbolapp/matchday_list.html', {'league': league, 'season': season, 'matchdays': matchdays, 'active_tab': 'matchdays'})
 
+@login_required
 def matchday_detail(request, matchday_id):
     """
     View for a single match day schedule, showing all matches for that day.
@@ -69,6 +77,7 @@ def matchday_detail(request, matchday_id):
     matches = Match.objects.filter(matchday=matchday)
     return render(request, 'futbolapp/matchday_detail.html', {'matchday': matchday, 'matches': matches})
 
+@login_required
 def match_statistics(request, match_id):
     """
     View for displaying detailed player statistics for a specific match.
@@ -77,6 +86,7 @@ def match_statistics(request, match_id):
     player_stats = PlayerStatistic.objects.filter(match=match)
     return render(request, 'futbolapp/match_statistics.html', {'match': match, 'player_stats': player_stats})
 
+@login_required
 def team_detail(request, team_id):
     """
     View for a single team, showing all their players and individual statistics.
@@ -96,6 +106,7 @@ def team_detail(request, team_id):
         player.stats = {k: v if v is not None else 0 for k, v in stats.items()}
     return render(request, 'futbolapp/team_detail.html', {'team': team, 'players': players, 'league': league, 'active_tab': 'teams'})
 
+@login_required
 def league_standings_view(request, league_id, season_id):
     """
     View for the league standings for a given league and season.
@@ -128,6 +139,7 @@ def league_standings_view(request, league_id, season_id):
 
     return render(request, 'futbolapp/league_standings.html', {'league': league, 'season': season, 'standings': standings, 'active_tab': 'standings'})
 
+@login_required
 def leaderboard_view(request, league_id, season_id):
     """
     View for displaying various leaderboards for a given league and season.
@@ -142,35 +154,22 @@ def leaderboard_view(request, league_id, season_id):
     )
 
     # Goals Leader
-    goals_leader = player_stats_in_season.values('player__name', 'player__team__name') \
-        .annotate(total_goals=Sum('goals')) \
-        .order_by('-total_goals')[:10]
+    goals_leader = player_stats_in_season.values('player__name', 'player__team__name')         .annotate(total_goals=Sum('goals'))         .order_by('-total_goals')[:10]
 
     # Assists Leader
-    assists_leader = player_stats_in_season.values('player__name', 'player__team__name') \
-        .annotate(total_assists=Sum('assists')) \
-        .order_by('-total_assists')[:10]
+    assists_leader = player_stats_in_season.values('player__name', 'player__team__name')         .annotate(total_assists=Sum('assists'))         .order_by('-total_assists')[:10]
 
     # Goal Contributions Leader (Goals + Assists)
-    goal_contributions_leader = player_stats_in_season.values('player__name', 'player__team__name') \
-        .annotate(total_contributions=Sum(F('goals') + F('assists'))) \
-        .order_by('-total_contributions')[:10]
+    goal_contributions_leader = player_stats_in_season.values('player__name', 'player__team__name')         .annotate(total_contributions=Sum(F('goals') + F('assists')))         .order_by('-total_contributions')[:10]
 
     # Clean Sheets Leader (only goalkeepers)
-    clean_sheets_leader = player_stats_in_season.filter(player__field_position='goalkeeper') \
-        .values('player__name', 'player__team__name') \
-        .annotate(total_clean_sheets=Sum('clean_sheets')) \
-        .order_by('-total_clean_sheets')[:10]
+    clean_sheets_leader = player_stats_in_season.filter(player__field_position='goalkeeper')         .values('player__name', 'player__team__name')         .annotate(total_clean_sheets=Sum('clean_sheets'))         .order_by('-total_clean_sheets')[:10]
 
     # Yellow Cards Leader
-    yellow_cards_leader = player_stats_in_season.values('player__name', 'player__team__name') \
-        .annotate(total_yellow_cards=Sum('yellow_cards')) \
-        .order_by('-total_yellow_cards')[:10]
+    yellow_cards_leader = player_stats_in_season.values('player__name', 'player__team__name')         .annotate(total_yellow_cards=Sum('yellow_cards'))         .order_by('-total_yellow_cards')[:10]
 
     # Red Cards Leader
-    red_cards_leader = player_stats_in_season.values('player__name', 'player__team__name') \
-        .annotate(total_red_cards=Sum('red_cards')) \
-        .order_by('-total_red_cards')[:10]
+    red_cards_leader = player_stats_in_season.values('player__name', 'player__team__name')         .annotate(total_red_cards=Sum('red_cards'))         .order_by('-total_red_cards')[:10]
 
     context = {
         'league': league,
