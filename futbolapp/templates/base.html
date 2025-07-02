@@ -9,8 +9,16 @@
 </head>
 <body class="min-h-screen bg-gray-100 flex flex-col items-center justify-center">
     <div class="w-full max-w-4xl p-4">
-        <header class="bg-primary-blue text-white p-4 rounded-t-lg">
-            <h1 class="text-2xl font-bold text-center"><a href="{% url 'league_selection' %}">Futbol App</a></h1>
+        <header class="bg-primary-blue text-white p-4 rounded-t-lg flex justify-between items-center">
+            <h1 class="text-2xl font-bold"><a href="{% url 'league_selection' %}">Futbol App</a></h1>
+            {% if user.is_authenticated %}
+                <form action="{% url 'logout' %}" method="post" class="inline">
+                    {% csrf_token %}
+                    <button type="submit" class="bg-primary-red hover:bg-red-700 text-white font-bold py-2 px-4 rounded text-sm">
+                        Logout
+                    </button>
+                </form>
+            {% endif %}
         </header>
         <main class="bg-white p-6 rounded-b-lg shadow-md">
             {% block content %}

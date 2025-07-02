@@ -1,4 +1,7 @@
 from django.db import models
+from django.contrib.auth.models import User
+# Removed: from django.db.models.signals import post_save
+# Removed: from django.dispatch import receiver
 
 class League(models.Model):
     name = models.CharField(max_length=100)
@@ -174,3 +177,15 @@ class LeagueStanding(models.Model):
         for standing in standings:
             cls.objects.filter(pk=standing.pk).update(position=position)
             position += 1
+
+class Profile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    team = models.ForeignKey(Team, on_delete=models.SET_NULL, null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.user.username}'s profile"
+
+# Removed: @receiver(post_save, sender=User)
+# Removed: def create_user_profile(sender, instance, created, **kwargs):
+# Removed:     if created:
+# Removed:         Profile.objects.get_or_create(user=instance)
