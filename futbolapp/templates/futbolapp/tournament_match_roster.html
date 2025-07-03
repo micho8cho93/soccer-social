@@ -3,7 +3,8 @@
 {% block content %}
     <h1 class="text-3xl font-bold mb-6 text-center">Roster for {{ match.home_team.name }} vs {{ match.away_team.name }}</h1>
     <div class="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-        <p class="text-gray-700 mb-4">Matchday: {{ match.matchday.number }} - {{ match.date|date:"F j, Y H:i" }}</p>
+        <p class="text-gray-700 mb-4">Group: {{ match.group.name }}</p>
+        <p class="text-gray-700 mb-4">Match Date: {{ match.date|date:"F j, Y H:i" }}</p>
 
         <h2 class="text-2xl font-semibold mb-4">{{ match.home_team.name }} Roster</h2>
         {% if home_team_players %}
@@ -50,10 +51,10 @@
         {% endif %}
 
         <div class="mt-6 text-center">
-            <button onclick="history.back()" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded inline-flex items-center">
+            <a href="{% url 'tournament_matchdays' match.group.tournament.id match.group.tournament.season.id %}" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded inline-flex items-center">
                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
-                Back
-            </button>
+                Back to Tournament Matchdays
+            </a>
         </div>
     </div>
 {% endblock %}

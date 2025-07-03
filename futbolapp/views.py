@@ -3,7 +3,7 @@ from .models import Matchday, Match, Team, Player, PlayerStatistic, LeagueStandi
 from django.db.models import Sum, F
 from django.http import JsonResponse, HttpResponseForbidden
 from django.contrib.auth.decorators import login_required
-from .forms import PlayerForm, RosterUpdateForm
+from .forms import PlayerForm, RosterUpdateForm, TournamentRosterUpdateForm
 from django.utils import timezone
 
 # Create your views here.
@@ -14,7 +14,9 @@ def league_selection(request):
     View for selecting a league and season.
     """
     leagues = League.objects.all()
-    return render(request, 'futbolapp/league_selection.html', {'leagues': leagues})
+    # Fetch seasons that are associated with a tournament
+    tournament_seasons = Season.objects.filter(tournament__isnull=False).select_related('tournament').order_by('tournament__name', '-year')
+    return render(request, 'futbolapp/league_selection.html', {'leagues': leagues, 'tournament_seasons': tournament_seasons})
 
 @login_required
 def get_seasons_for_league(request, league_id):
@@ -282,3 +284,1710 @@ def leaderboard_view(request, league_id, season_id):
         'red_cards_leader': red_cards_leader,
     }
     return render(request, 'futbolapp/leaderboard.html', context)
+
+@login_required
+def tournament_match_statistics(request, match_id):
+    """
+    View for displaying detailed player statistics for a specific tournament match.
+    """
+    match = get_object_or_404(TournamentMatch, pk=match_id)
+    player_stats = TournamentPlayerStatistic.objects.filter(tournament_match=match)
+    return render(request, 'futbolapp/tournament_match_statistics.html', {'match': match, 'player_stats': player_stats})
+
+@login_required
+def tournament_match_roster_view(request, match_id):
+    """
+    View for displaying the roster (player presence) for a specific tournament match.
+    """
+    match = get_object_or_404(TournamentMatch, pk=match_id)
+    home_team_players = TournamentPlayerStatistic.objects.filter(tournament_match=match, player__team=match.home_team, present=True).order_by('player__name')
+    away_team_players = TournamentPlayerStatistic.objects.filter(tournament_match=match, player__team=match.away_team, present=True).order_by('player__name')
+    return render(request, 'futbolapp/tournament_match_roster.html', {
+        'match': match,
+        'home_team_players': home_team_players,
+        'away_team_players': away_team_players
+    })
+
+@login_required
+def update_tournament_roster_view(request, match_id):
+    """
+    Allows authorized users to update the roster (player presence) for a future tournament match.
+    """
+    match = get_object_or_404(TournamentMatch, pk=match_id)
+
+    # Authorization: Check if user is superuser or associated with one of the teams
+    user_team = None
+    if hasattr(request.user, 'profile') and request.user.profile.team:
+        user_team = request.user.profile.team
+
+    if not request.user.is_superuser and user_team not in [match.home_team, match.away_team]:
+        return HttpResponseForbidden("You are not authorized to update the roster for this match.")
+
+    # Date Check: Only allow updates for future matches
+    if match.date < timezone.now():
+        return HttpResponseForbidden("Roster can only be updated for future matches.")
+
+    if request.method == 'POST':
+        form = TournamentRosterUpdateForm(request.POST, tournament_match=match, user=request.user)
+        if form.is_valid():
+            form.update_roster_data()
+            # Correctly get tournament_id and season_id from the match object
+            tournament_id = match.group.tournament.id
+            season_id = match.group.tournament.season_set.first().id # Assuming one season per tournament
+            return redirect('tournament_matchdays', tournament_id=tournament_id, season_id=season_id)
+    else:
+        form = TournamentRosterUpdateForm(tournament_match=match, user=request.user)
+
+    return render(request, 'futbolapp/roster_update_form.html', {'form': form, 'match': match})
+
+@login_required
+def tournament_home(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    return render(request, 'futbolapp/tournament_home.html', {'tournament': tournament, 'season': season, 'active_tab': 'home'})
+
+@login_required
+def tournament_teams(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    teams = Team.objects.filter(group__tournament=tournament).distinct()
+    return render(request, 'futbolapp/tournament_teams.html', {'tournament': tournament, 'season': season, 'teams': teams, 'active_tab': 'teams'})
+
+@login_required
+def tournament_matchdays(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    # For tournaments, matchdays are implicitly defined by TournamentMatch dates within groups
+    # We'll group matches by date for display purposes
+    matches_by_date = {}
+    tournament_matches = TournamentMatch.objects.filter(group__tournament=tournament).order_by('date')
+    for match in tournament_matches:
+        match_date = match.date.date() # Get just the date part
+        if match_date not in matches_by_date:
+            matches_by_date[match_date] = []
+        matches_by_date[match_date].append(match)
+
+    # Convert dictionary to a sorted list of (date, matches) tuples
+    sorted_match_dates = sorted(matches_by_date.items())
+
+    return render(request, 'futbolapp/tournament_matchdays.html', {'tournament': tournament, 'season': season, 'matches_by_date': sorted_match_dates, 'active_tab': 'matchdays'})
+
+@login_required
+def tournament_standings(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    groups = Group.objects.filter(tournament=tournament).order_by('name')
+    
+    group_standings_data = []
+    for group in groups:
+        standings = []
+        teams_in_group = group.teams.all()
+        for team in teams_in_group:
+            standing, created = GroupStanding.objects.get_or_create(
+                group=group,
+                team=team,
+                defaults={
+                    'position': 0,
+                    'points': 0,
+                    'matches_played': 0,
+                    'wins': 0,
+                    'draws': 0,
+                    'losses': 0,
+                    'goals_for': 0,
+                    'goals_against': 0,
+                    'goal_difference': 0,
+                }
+            )
+            standings.append(standing)
+        
+        standings.sort(key=lambda x: (x.position, -x.points, -x.goal_difference, -x.goals_for))
+        group_standings_data.append({'group': group, 'standings': standings})
+
+    return render(request, 'futbolapp/tournament_standings.html', {'tournament': tournament, 'season': season, 'group_standings_data': group_standings_data, 'active_tab': 'standings'})
+
+@login_required
+def tournament_leaderboard(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+
+    player_stats_in_tournament = TournamentPlayerStatistic.objects.filter(
+        tournament_match__group__tournament=tournament
+    )
+
+    # Goals Leader
+    goals_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_goals=Sum('goals')) \
+        .order_by('-total_goals')[:10]
+
+    # Assists Leader
+    assists_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_assists=Sum('assists')) \
+        .order_by('-total_assists')[:10]
+
+    # Goal Contributions Leader (Goals + Assists)
+    goal_contributions_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_contributions=Sum(F('goals') + F('assists'))) \
+        .order_by('-total_contributions')[:10]
+
+    # Clean Sheets Leader (only goalkeepers)
+    clean_sheets_leader = player_stats_in_tournament.filter(player__field_position='goalkeeper') \
+        .values('player__name', 'player__team__name') \
+        .annotate(total_clean_sheets=Sum('clean_sheets')) \
+        .order_by('-total_clean_sheets')[:10]
+
+    # Yellow Cards Leader
+    yellow_cards_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_yellow_cards=Sum('yellow_cards')) \
+        .order_by('-total_yellow_cards')[:10]
+
+    # Red Cards Leader
+    red_cards_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_red_cards=Sum('red_cards')) \
+        .order_by('-total_red_cards')[:10]
+
+    context = {
+        'tournament': tournament,
+        'season': season,
+        'active_tab': 'leaderboard',
+        'goals_leader': goals_leader,
+        'assists_leader': assists_leader,
+        'goal_contributions_leader': goal_contributions_leader,
+        'clean_sheets_leader': clean_sheets_leader,
+        'yellow_cards_leader': yellow_cards_leader,
+        'red_cards_leader': red_cards_leader,
+    }
+    return render(request, 'futbolapp/tournament_leaderboard.html', context)
+
+@login_required
+def tournament_home(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    return render(request, 'futbolapp/tournament_home.html', {'tournament': tournament, 'season': season, 'active_tab': 'home'})
+
+@login_required
+def tournament_teams(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    teams = Team.objects.filter(group__tournament=tournament).distinct()
+    return render(request, 'futbolapp/tournament_teams.html', {'tournament': tournament, 'season': season, 'teams': teams, 'active_tab': 'teams'})
+
+@login_required
+def tournament_matchdays(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    # For tournaments, matchdays are implicitly defined by TournamentMatch dates within groups
+    # We'll group matches by date for display purposes
+    matches_by_date = {}
+    tournament_matches = TournamentMatch.objects.filter(group__tournament=tournament).order_by('date')
+    for match in tournament_matches:
+        match_date = match.date.date() # Get just the date part
+        if match_date not in matches_by_date:
+            matches_by_date[match_date] = []
+        matches_by_date[match_date].append(match)
+
+    # Convert dictionary to a sorted list of (date, matches) tuples
+    sorted_match_dates = sorted(matches_by_date.items())
+
+    return render(request, 'futbolapp/tournament_matchdays.html', {'tournament': tournament, 'season': season, 'matches_by_date': sorted_match_dates, 'active_tab': 'matchdays'})
+
+@login_required
+def tournament_standings(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    groups = Group.objects.filter(tournament=tournament).order_by('name')
+    
+    group_standings_data = []
+    for group in groups:
+        standings = []
+        teams_in_group = group.teams.all()
+        for team in teams_in_group:
+            standing, created = GroupStanding.objects.get_or_create(
+                group=group,
+                team=team,
+                defaults={
+                    'position': 0,
+                    'points': 0,
+                    'matches_played': 0,
+                    'wins': 0,
+                    'draws': 0,
+                    'losses': 0,
+                    'goals_for': 0,
+                    'goals_against': 0,
+                    'goal_difference': 0,
+                }
+            )
+            standings.append(standing)
+        
+        standings.sort(key=lambda x: (x.position, -x.points, -x.goal_difference, -x.goals_for))
+        group_standings_data.append({'group': group, 'standings': standings})
+
+    return render(request, 'futbolapp/tournament_standings.html', {'tournament': tournament, 'season': season, 'group_standings_data': group_standings_data, 'active_tab': 'standings'})
+
+@login_required
+def tournament_leaderboard(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+
+    player_stats_in_tournament = TournamentPlayerStatistic.objects.filter(
+        tournament_match__group__tournament=tournament
+    )
+
+    # Goals Leader
+    goals_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_goals=Sum('goals')) \
+        .order_by('-total_goals')[:10]
+
+    # Assists Leader
+    assists_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_assists=Sum('assists')) \
+        .order_by('-total_assists')[:10]
+
+    # Goal Contributions Leader (Goals + Assists)
+    goal_contributions_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_contributions=Sum(F('goals') + F('assists'))) \
+        .order_by('-total_contributions')[:10]
+
+    # Clean Sheets Leader (only goalkeepers)
+    clean_sheets_leader = player_stats_in_tournament.filter(player__field_position='goalkeeper') \
+        .values('player__name', 'player__team__name') \
+        .annotate(total_clean_sheets=Sum('clean_sheets')) \
+        .order_by('-total_clean_sheets')[:10]
+
+    # Yellow Cards Leader
+    yellow_cards_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_yellow_cards=Sum('yellow_cards')) \
+        .order_by('-total_yellow_cards')[:10]
+
+    # Red Cards Leader
+    red_cards_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_red_cards=Sum('red_cards')) \
+        .order_by('-total_red_cards')[:10]
+
+    context = {
+        'tournament': tournament,
+        'season': season,
+        'active_tab': 'leaderboard',
+        'goals_leader': goals_leader,
+        'assists_leader': assists_leader,
+        'goal_contributions_leader': goal_contributions_leader,
+        'clean_sheets_leader': clean_sheets_leader,
+        'yellow_cards_leader': yellow_cards_leader,
+        'red_cards_leader': red_cards_leader,
+    }
+    return render(request, 'futbolapp/tournament_leaderboard.html', context)
+
+@login_required
+def tournament_home(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    return render(request, 'futbolapp/tournament_home.html', {'tournament': tournament, 'season': season, 'active_tab': 'home'})
+
+@login_required
+def tournament_teams(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    teams = Team.objects.filter(group__tournament=tournament).distinct()
+    return render(request, 'futbolapp/tournament_teams.html', {'tournament': tournament, 'season': season, 'teams': teams, 'active_tab': 'teams'})
+
+@login_required
+def tournament_matchdays(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    # For tournaments, matchdays are implicitly defined by TournamentMatch dates within groups
+    # We'll group matches by date for display purposes
+    matches_by_date = {}
+    tournament_matches = TournamentMatch.objects.filter(group__tournament=tournament).order_by('date')
+    for match in tournament_matches:
+        match_date = match.date.date() # Get just the date part
+        if match_date not in matches_by_date:
+            matches_by_date[match_date] = []
+        matches_by_date[match_date].append(match)
+
+    # Convert dictionary to a sorted list of (date, matches) tuples
+    sorted_match_dates = sorted(matches_by_date.items())
+
+    return render(request, 'futbolapp/tournament_matchdays.html', {'tournament': tournament, 'season': season, 'matches_by_date': sorted_match_dates, 'active_tab': 'matchdays'})
+
+@login_required
+def tournament_standings(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    groups = Group.objects.filter(tournament=tournament).order_by('name')
+    
+    group_standings_data = []
+    for group in groups:
+        standings = []
+        teams_in_group = group.teams.all()
+        for team in teams_in_group:
+            standing, created = GroupStanding.objects.get_or_create(
+                group=group,
+                team=team,
+                defaults={
+                    'position': 0,
+                    'points': 0,
+                    'matches_played': 0,
+                    'wins': 0,
+                    'draws': 0,
+                    'losses': 0,
+                    'goals_for': 0,
+                    'goals_against': 0,
+                    'goal_difference': 0,
+                }
+            )
+            standings.append(standing)
+        
+        standings.sort(key=lambda x: (x.position, -x.points, -x.goal_difference, -x.goals_for))
+        group_standings_data.append({'group': group, 'standings': standings})
+
+    return render(request, 'futbolapp/tournament_standings.html', {'tournament': tournament, 'season': season, 'group_standings_data': group_standings_data, 'active_tab': 'standings'})
+
+@login_required
+def tournament_leaderboard(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+
+    player_stats_in_tournament = TournamentPlayerStatistic.objects.filter(
+        tournament_match__group__tournament=tournament
+    )
+
+    # Goals Leader
+    goals_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_goals=Sum('goals')) \
+        .order_by('-total_goals')[:10]
+
+    # Assists Leader
+    assists_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_assists=Sum('assists')) \
+        .order_by('-total_assists')[:10]
+
+    # Goal Contributions Leader (Goals + Assists)
+    goal_contributions_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_contributions=Sum(F('goals') + F('assists'))) \
+        .order_by('-total_contributions')[:10]
+
+    # Clean Sheets Leader (only goalkeepers)
+    clean_sheets_leader = player_stats_in_tournament.filter(player__field_position='goalkeeper') \
+        .values('player__name', 'player__team__name') \
+        .annotate(total_clean_sheets=Sum('clean_sheets')) \
+        .order_by('-total_clean_sheets')[:10]
+
+    # Yellow Cards Leader
+    yellow_cards_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_yellow_cards=Sum('yellow_cards')) \
+        .order_by('-total_yellow_cards')[:10]
+
+    # Red Cards Leader
+    red_cards_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_red_cards=Sum('red_cards')) \
+        .order_by('-total_red_cards')[:10]
+
+    context = {
+        'tournament': tournament,
+        'season': season,
+        'active_tab': 'leaderboard',
+        'goals_leader': goals_leader,
+        'assists_leader': assists_leader,
+        'goal_contributions_leader': goal_contributions_leader,
+        'clean_sheets_leader': clean_sheets_leader,
+        'yellow_cards_leader': yellow_cards_leader,
+        'red_cards_leader': red_cards_leader,
+    }
+    return render(request, 'futbolapp/tournament_leaderboard.html', context)
+
+@login_required
+def tournament_home(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    return render(request, 'futbolapp/tournament_home.html', {'tournament': tournament, 'season': season, 'active_tab': 'home'})
+
+@login_required
+def tournament_teams(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    teams = Team.objects.filter(group__tournament=tournament).distinct()
+    return render(request, 'futbolapp/tournament_teams.html', {'tournament': tournament, 'season': season, 'teams': teams, 'active_tab': 'teams'})
+
+@login_required
+def tournament_matchdays(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    # For tournaments, matchdays are implicitly defined by TournamentMatch dates within groups
+    # We'll group matches by date for display purposes
+    matches_by_date = {}
+    tournament_matches = TournamentMatch.objects.filter(group__tournament=tournament).order_by('date')
+    for match in tournament_matches:
+        match_date = match.date.date() # Get just the date part
+        if match_date not in matches_by_date:
+            matches_by_date[match_date] = []
+        matches_by_date[match_date].append(match)
+
+    # Convert dictionary to a sorted list of (date, matches) tuples
+    sorted_match_dates = sorted(matches_by_date.items())
+
+    return render(request, 'futbolapp/tournament_matchdays.html', {'tournament': tournament, 'season': season, 'matches_by_date': sorted_match_dates, 'active_tab': 'matchdays'})
+
+@login_required
+def tournament_standings(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    groups = Group.objects.filter(tournament=tournament).order_by('name')
+    
+    group_standings_data = []
+    for group in groups:
+        standings = []
+        teams_in_group = group.teams.all()
+        for team in teams_in_group:
+            standing, created = GroupStanding.objects.get_or_create(
+                group=group,
+                team=team,
+                defaults={
+                    'position': 0,
+                    'points': 0,
+                    'matches_played': 0,
+                    'wins': 0,
+                    'draws': 0,
+                    'losses': 0,
+                    'goals_for': 0,
+                    'goals_against': 0,
+                    'goal_difference': 0,
+                }
+            )
+            standings.append(standing)
+        
+        standings.sort(key=lambda x: (x.position, -x.points, -x.goal_difference, -x.goals_for))
+        group_standings_data.append({'group': group, 'standings': standings})
+
+    return render(request, 'futbolapp/tournament_standings.html', {'tournament': tournament, 'season': season, 'group_standings_data': group_standings_data, 'active_tab': 'standings'})
+
+@login_required
+def tournament_leaderboard(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+
+    player_stats_in_tournament = TournamentPlayerStatistic.objects.filter(
+        tournament_match__group__tournament=tournament
+    )
+
+    # Goals Leader
+    goals_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_goals=Sum('goals')) \
+        .order_by('-total_goals')[:10]
+
+    # Assists Leader
+    assists_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_assists=Sum('assists')) \
+        .order_by('-total_assists')[:10]
+
+    # Goal Contributions Leader (Goals + Assists)
+    goal_contributions_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_contributions=Sum(F('goals') + F('assists'))) \
+        .order_by('-total_contributions')[:10]
+
+    # Clean Sheets Leader (only goalkeepers)
+    clean_sheets_leader = player_stats_in_tournament.filter(player__field_position='goalkeeper') \
+        .values('player__name', 'player__team__name') \
+        .annotate(total_clean_sheets=Sum('clean_sheets')) \
+        .order_by('-total_clean_sheets')[:10]
+
+    # Yellow Cards Leader
+    yellow_cards_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_yellow_cards=Sum('yellow_cards')) \
+        .order_by('-total_yellow_cards')[:10]
+
+    # Red Cards Leader
+    red_cards_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_red_cards=Sum('red_cards')) \
+        .order_by('-total_red_cards')[:10]
+
+    context = {
+        'tournament': tournament,
+        'season': season,
+        'active_tab': 'leaderboard',
+        'goals_leader': goals_leader,
+        'assists_leader': assists_leader,
+        'goal_contributions_leader': goal_contributions_leader,
+        'clean_sheets_leader': clean_sheets_leader,
+        'yellow_cards_leader': yellow_cards_leader,
+        'red_cards_leader': red_cards_leader,
+    }
+    return render(request, 'futbolapp/tournament_leaderboard.html', context)
+
+@login_required
+def tournament_home(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    return render(request, 'futbolapp/tournament_home.html', {'tournament': tournament, 'season': season, 'active_tab': 'home'})
+
+@login_required
+def tournament_teams(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    teams = Team.objects.filter(group__tournament=tournament).distinct()
+    return render(request, 'futbolapp/tournament_teams.html', {'tournament': tournament, 'season': season, 'teams': teams, 'active_tab': 'teams'})
+
+@login_required
+def tournament_matchdays(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    # For tournaments, matchdays are implicitly defined by TournamentMatch dates within groups
+    # We'll group matches by date for display purposes
+    matches_by_date = {}
+    tournament_matches = TournamentMatch.objects.filter(group__tournament=tournament).order_by('date')
+    for match in tournament_matches:
+        match_date = match.date.date() # Get just the date part
+        if match_date not in matches_by_date:
+            matches_by_date[match_date] = []
+        matches_by_date[match_date].append(match)
+
+    # Convert dictionary to a sorted list of (date, matches) tuples
+    sorted_match_dates = sorted(matches_by_date.items())
+
+    return render(request, 'futbolapp/tournament_matchdays.html', {'tournament': tournament, 'season': season, 'matches_by_date': sorted_match_dates, 'active_tab': 'matchdays'})
+
+@login_required
+def tournament_standings(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    groups = Group.objects.filter(tournament=tournament).order_by('name')
+    
+    group_standings_data = []
+    for group in groups:
+        standings = []
+        teams_in_group = group.teams.all()
+        for team in teams_in_group:
+            standing, created = GroupStanding.objects.get_or_create(
+                group=group,
+                team=team,
+                defaults={
+                    'position': 0,
+                    'points': 0,
+                    'matches_played': 0,
+                    'wins': 0,
+                    'draws': 0,
+                    'losses': 0,
+                    'goals_for': 0,
+                    'goals_against': 0,
+                    'goal_difference': 0,
+                }
+            )
+            standings.append(standing)
+        
+        standings.sort(key=lambda x: (x.position, -x.points, -x.goal_difference, -x.goals_for))
+        group_standings_data.append({'group': group, 'standings': standings})
+
+    return render(request, 'futbolapp/tournament_standings.html', {'tournament': tournament, 'season': season, 'group_standings_data': group_standings_data, 'active_tab': 'standings'})
+
+@login_required
+def tournament_leaderboard(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+
+    player_stats_in_tournament = TournamentPlayerStatistic.objects.filter(
+        tournament_match__group__tournament=tournament
+    )
+
+    # Goals Leader
+    goals_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_goals=Sum('goals')) \
+        .order_by('-total_goals')[:10]
+
+    # Assists Leader
+    assists_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_assists=Sum('assists')) \
+        .order_by('-total_assists')[:10]
+
+    # Goal Contributions Leader (Goals + Assists)
+    goal_contributions_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_contributions=Sum(F('goals') + F('assists'))) \
+        .order_by('-total_contributions')[:10]
+
+    # Clean Sheets Leader (only goalkeepers)
+    clean_sheets_leader = player_stats_in_tournament.filter(player__field_position='goalkeeper') \
+        .values('player__name', 'player__team__name') \
+        .annotate(total_clean_sheets=Sum('clean_sheets')) \
+        .order_by('-total_clean_sheets')[:10]
+
+    # Yellow Cards Leader
+    yellow_cards_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_yellow_cards=Sum('yellow_cards')) \
+        .order_by('-total_yellow_cards')[:10]
+
+    # Red Cards Leader
+    red_cards_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_red_cards=Sum('red_cards')) \
+        .order_by('-total_red_cards')[:10]
+
+    context = {
+        'tournament': tournament,
+        'season': season,
+        'active_tab': 'leaderboard',
+        'goals_leader': goals_leader,
+        'assists_leader': assists_leader,
+        'goal_contributions_leader': goal_contributions_leader,
+        'clean_sheets_leader': clean_sheets_leader,
+        'yellow_cards_leader': yellow_cards_leader,
+        'red_cards_leader': red_cards_leader,
+    }
+    return render(request, 'futbolapp/tournament_leaderboard.html', context)
+
+@login_required
+def tournament_home(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    return render(request, 'futbolapp/tournament_home.html', {'tournament': tournament, 'season': season, 'active_tab': 'home'})
+
+@login_required
+def tournament_teams(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    teams = Team.objects.filter(group__tournament=tournament).distinct()
+    return render(request, 'futbolapp/tournament_teams.html', {'tournament': tournament, 'season': season, 'teams': teams, 'active_tab': 'teams'})
+
+@login_required
+def tournament_matchdays(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    # For tournaments, matchdays are implicitly defined by TournamentMatch dates within groups
+    # We'll group matches by date for display purposes
+    matches_by_date = {}
+    tournament_matches = TournamentMatch.objects.filter(group__tournament=tournament).order_by('date')
+    for match in tournament_matches:
+        match_date = match.date.date() # Get just the date part
+        if match_date not in matches_by_date:
+            matches_by_date[match_date] = []
+        matches_by_date[match_date].append(match)
+
+    # Convert dictionary to a sorted list of (date, matches) tuples
+    sorted_match_dates = sorted(matches_by_date.items())
+
+    return render(request, 'futbolapp/tournament_matchdays.html', {'tournament': tournament, 'season': season, 'matches_by_date': sorted_match_dates, 'active_tab': 'matchdays'})
+
+@login_required
+def tournament_standings(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    groups = Group.objects.filter(tournament=tournament).order_by('name')
+    
+    group_standings_data = []
+    for group in groups:
+        standings = []
+        teams_in_group = group.teams.all()
+        for team in teams_in_group:
+            standing, created = GroupStanding.objects.get_or_create(
+                group=group,
+                team=team,
+                defaults={
+                    'position': 0,
+                    'points': 0,
+                    'matches_played': 0,
+                    'wins': 0,
+                    'draws': 0,
+                    'losses': 0,
+                    'goals_for': 0,
+                    'goals_against': 0,
+                    'goal_difference': 0,
+                }
+            )
+            standings.append(standing)
+        
+        standings.sort(key=lambda x: (x.position, -x.points, -x.goal_difference, -x.goals_for))
+        group_standings_data.append({'group': group, 'standings': standings})
+
+    return render(request, 'futbolapp/tournament_standings.html', {'tournament': tournament, 'season': season, 'group_standings_data': group_standings_data, 'active_tab': 'standings'})
+
+@login_required
+def tournament_leaderboard(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+
+    player_stats_in_tournament = TournamentPlayerStatistic.objects.filter(
+        tournament_match__group__tournament=tournament
+    )
+
+    # Goals Leader
+    goals_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_goals=Sum('goals')) \
+        .order_by('-total_goals')[:10]
+
+    # Assists Leader
+    assists_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_assists=Sum('assists')) \
+        .order_by('-total_assists')[:10]
+
+    # Goal Contributions Leader (Goals + Assists)
+    goal_contributions_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_contributions=Sum(F('goals') + F('assists'))) \
+        .order_by('-total_contributions')[:10]
+
+    # Clean Sheets Leader (only goalkeepers)
+    clean_sheets_leader = player_stats_in_tournament.filter(player__field_position='goalkeeper') \
+        .values('player__name', 'player__team__name') \
+        .annotate(total_clean_sheets=Sum('clean_sheets')) \
+        .order_by('-total_clean_sheets')[:10]
+
+    # Yellow Cards Leader
+    yellow_cards_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_yellow_cards=Sum('yellow_cards')) \
+        .order_by('-total_yellow_cards')[:10]
+
+    # Red Cards Leader
+    red_cards_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_red_cards=Sum('red_cards')) \
+        .order_by('-total_red_cards')[:10]
+
+    context = {
+        'tournament': tournament,
+        'season': season,
+        'active_tab': 'leaderboard',
+        'goals_leader': goals_leader,
+        'assists_leader': assists_leader,
+        'goal_contributions_leader': goal_contributions_leader,
+        'clean_sheets_leader': clean_sheets_leader,
+        'yellow_cards_leader': yellow_cards_leader,
+        'red_cards_leader': red_cards_leader,
+    }
+    return render(request, 'futbolapp/tournament_leaderboard.html', context)
+
+@login_required
+def tournament_home(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    return render(request, 'futbolapp/tournament_home.html', {'tournament': tournament, 'season': season, 'active_tab': 'home'})
+
+@login_required
+def tournament_teams(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    teams = Team.objects.filter(group__tournament=tournament).distinct()
+    return render(request, 'futbolapp/tournament_teams.html', {'tournament': tournament, 'season': season, 'teams': teams, 'active_tab': 'teams'})
+
+@login_required
+def tournament_matchdays(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    # For tournaments, matchdays are implicitly defined by TournamentMatch dates within groups
+    # We'll group matches by date for display purposes
+    matches_by_date = {}
+    tournament_matches = TournamentMatch.objects.filter(group__tournament=tournament).order_by('date')
+    for match in tournament_matches:
+        match_date = match.date.date() # Get just the date part
+        if match_date not in matches_by_date:
+            matches_by_date[match_date] = []
+        matches_by_date[match_date].append(match)
+
+    # Convert dictionary to a sorted list of (date, matches) tuples
+    sorted_match_dates = sorted(matches_by_date.items())
+
+    return render(request, 'futbolapp/tournament_matchdays.html', {'tournament': tournament, 'season': season, 'matches_by_date': sorted_match_dates, 'active_tab': 'matchdays'})
+
+@login_required
+def tournament_standings(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    groups = Group.objects.filter(tournament=tournament).order_by('name')
+    
+    group_standings_data = []
+    for group in groups:
+        standings = []
+        teams_in_group = group.teams.all()
+        for team in teams_in_group:
+            standing, created = GroupStanding.objects.get_or_create(
+                group=group,
+                team=team,
+                defaults={
+                    'position': 0,
+                    'points': 0,
+                    'matches_played': 0,
+                    'wins': 0,
+                    'draws': 0,
+                    'losses': 0,
+                    'goals_for': 0,
+                    'goals_against': 0,
+                    'goal_difference': 0,
+                }
+            )
+            standings.append(standing)
+        
+        standings.sort(key=lambda x: (x.position, -x.points, -x.goal_difference, -x.goals_for))
+        group_standings_data.append({'group': group, 'standings': standings})
+
+    return render(request, 'futbolapp/tournament_standings.html', {'tournament': tournament, 'season': season, 'group_standings_data': group_standings_data, 'active_tab': 'standings'})
+
+@login_required
+def tournament_leaderboard(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+
+    player_stats_in_tournament = TournamentPlayerStatistic.objects.filter(
+        tournament_match__group__tournament=tournament
+    )
+
+    # Goals Leader
+    goals_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_goals=Sum('goals')) \
+        .order_by('-total_goals')[:10]
+
+    # Assists Leader
+    assists_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_assists=Sum('assists')) \
+        .order_by('-total_assists')[:10]
+
+    # Goal Contributions Leader (Goals + Assists)
+    goal_contributions_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_contributions=Sum(F('goals') + F('assists'))) \
+        .order_by('-total_contributions')[:10]
+
+    # Clean Sheets Leader (only goalkeepers)
+    clean_sheets_leader = player_stats_in_tournament.filter(player__field_position='goalkeeper') \
+        .values('player__name', 'player__team__name') \
+        .annotate(total_clean_sheets=Sum('clean_sheets')) \
+        .order_by('-total_clean_sheets')[:10]
+
+    # Yellow Cards Leader
+    yellow_cards_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_yellow_cards=Sum('yellow_cards')) \
+        .order_by('-total_yellow_cards')[:10]
+
+    # Red Cards Leader
+    red_cards_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_red_cards=Sum('red_cards')) \
+        .order_by('-total_red_cards')[:10]
+
+    context = {
+        'tournament': tournament,
+        'season': season,
+        'active_tab': 'leaderboard',
+        'goals_leader': goals_leader,
+        'assists_leader': assists_leader,
+        'goal_contributions_leader': goal_contributions_leader,
+        'clean_sheets_leader': clean_sheets_leader,
+        'yellow_cards_leader': yellow_cards_leader,
+        'red_cards_leader': red_cards_leader,
+    }
+    return render(request, 'futbolapp/tournament_leaderboard.html', context)
+
+@login_required
+def tournament_home(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    return render(request, 'futbolapp/tournament_home.html', {'tournament': tournament, 'season': season, 'active_tab': 'home'})
+
+@login_required
+def tournament_teams(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    teams = Team.objects.filter(group__tournament=tournament).distinct()
+    return render(request, 'futbolapp/tournament_teams.html', {'tournament': tournament, 'season': season, 'teams': teams, 'active_tab': 'teams'})
+
+@login_required
+def tournament_matchdays(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    # For tournaments, matchdays are implicitly defined by TournamentMatch dates within groups
+    # We'll group matches by date for display purposes
+    matches_by_date = {}
+    tournament_matches = TournamentMatch.objects.filter(group__tournament=tournament).order_by('date')
+    for match in tournament_matches:
+        match_date = match.date.date() # Get just the date part
+        if match_date not in matches_by_date:
+            matches_by_date[match_date] = []
+        matches_by_date[match_date].append(match)
+
+    # Convert dictionary to a sorted list of (date, matches) tuples
+    sorted_match_dates = sorted(matches_by_date.items())
+
+    return render(request, 'futbolapp/tournament_matchdays.html', {'tournament': tournament, 'season': season, 'matches_by_date': sorted_match_dates, 'active_tab': 'matchdays'})
+
+@login_required
+def tournament_standings(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    groups = Group.objects.filter(tournament=tournament).order_by('name')
+    
+    group_standings_data = []
+    for group in groups:
+        standings = []
+        teams_in_group = group.teams.all()
+        for team in teams_in_group:
+            standing, created = GroupStanding.objects.get_or_create(
+                group=group,
+                team=team,
+                defaults={
+                    'position': 0,
+                    'points': 0,
+                    'matches_played': 0,
+                    'wins': 0,
+                    'draws': 0,
+                    'losses': 0,
+                    'goals_for': 0,
+                    'goals_against': 0,
+                    'goal_difference': 0,
+                }
+            )
+            standings.append(standing)
+        
+        standings.sort(key=lambda x: (x.position, -x.points, -x.goal_difference, -x.goals_for))
+        group_standings_data.append({'group': group, 'standings': standings})
+
+    return render(request, 'futbolapp/tournament_standings.html', {'tournament': tournament, 'season': season, 'group_standings_data': group_standings_data, 'active_tab': 'standings'})
+
+@login_required
+def tournament_leaderboard(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+
+    player_stats_in_tournament = TournamentPlayerStatistic.objects.filter(
+        tournament_match__group__tournament=tournament
+    )
+
+    # Goals Leader
+    goals_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_goals=Sum('goals')) \
+        .order_by('-total_goals')[:10]
+
+    # Assists Leader
+    assists_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_assists=Sum('assists')) \
+        .order_by('-total_assists')[:10]
+
+    # Goal Contributions Leader (Goals + Assists)
+    goal_contributions_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_contributions=Sum(F('goals') + F('assists'))) \
+        .order_by('-total_contributions')[:10]
+
+    # Clean Sheets Leader (only goalkeepers)
+    clean_sheets_leader = player_stats_in_tournament.filter(player__field_position='goalkeeper') \
+        .values('player__name', 'player__team__name') \
+        .annotate(total_clean_sheets=Sum('clean_sheets')) \
+        .order_by('-total_clean_sheets')[:10]
+
+    # Yellow Cards Leader
+    yellow_cards_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_yellow_cards=Sum('yellow_cards')) \
+        .order_by('-total_yellow_cards')[:10]
+
+    # Red Cards Leader
+    red_cards_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_red_cards=Sum('red_cards')) \
+        .order_by('-total_red_cards')[:10]
+
+    context = {
+        'tournament': tournament,
+        'season': season,
+        'active_tab': 'leaderboard',
+        'goals_leader': goals_leader,
+        'assists_leader': assists_leader,
+        'goal_contributions_leader': goal_contributions_leader,
+        'clean_sheets_leader': clean_sheets_leader,
+        'yellow_cards_leader': yellow_cards_leader,
+        'red_cards_leader': red_cards_leader,
+    }
+    return render(request, 'futbolapp/tournament_leaderboard.html', context)
+
+@login_required
+def tournament_home(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    return render(request, 'futbolapp/tournament_home.html', {'tournament': tournament, 'season': season, 'active_tab': 'home'})
+
+@login_required
+def tournament_teams(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    teams = Team.objects.filter(group__tournament=tournament).distinct()
+    return render(request, 'futbolapp/tournament_teams.html', {'tournament': tournament, 'season': season, 'teams': teams, 'active_tab': 'teams'})
+
+@login_required
+def tournament_matchdays(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    # For tournaments, matchdays are implicitly defined by TournamentMatch dates within groups
+    # We'll group matches by date for display purposes
+    matches_by_date = {}
+    tournament_matches = TournamentMatch.objects.filter(group__tournament=tournament).order_by('date')
+    for match in tournament_matches:
+        match_date = match.date.date() # Get just the date part
+        if match_date not in matches_by_date:
+            matches_by_date[match_date] = []
+        matches_by_date[match_date].append(match)
+
+    # Convert dictionary to a sorted list of (date, matches) tuples
+    sorted_match_dates = sorted(matches_by_date.items())
+
+    return render(request, 'futbolapp/tournament_matchdays.html', {'tournament': tournament, 'season': season, 'matches_by_date': sorted_match_dates, 'active_tab': 'matchdays'})
+
+@login_required
+def tournament_standings(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    groups = Group.objects.filter(tournament=tournament).order_by('name')
+    
+    group_standings_data = []
+    for group in groups:
+        standings = []
+        teams_in_group = group.teams.all()
+        for team in teams_in_group:
+            standing, created = GroupStanding.objects.get_or_create(
+                group=group,
+                team=team,
+                defaults={
+                    'position': 0,
+                    'points': 0,
+                    'matches_played': 0,
+                    'wins': 0,
+                    'draws': 0,
+                    'losses': 0,
+                    'goals_for': 0,
+                    'goals_against': 0,
+                    'goal_difference': 0,
+                }
+            )
+            standings.append(standing)
+        
+        standings.sort(key=lambda x: (x.position, -x.points, -x.goal_difference, -x.goals_for))
+        group_standings_data.append({'group': group, 'standings': standings})
+
+    return render(request, 'futbolapp/tournament_standings.html', {'tournament': tournament, 'season': season, 'group_standings_data': group_standings_data, 'active_tab': 'standings'})
+
+@login_required
+def tournament_leaderboard(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+
+    player_stats_in_tournament = TournamentPlayerStatistic.objects.filter(
+        tournament_match__group__tournament=tournament
+    )
+
+    # Goals Leader
+    goals_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_goals=Sum('goals')) \
+        .order_by('-total_goals')[:10]
+
+    # Assists Leader
+    assists_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_assists=Sum('assists')) \
+        .order_by('-total_assists')[:10]
+
+    # Goal Contributions Leader (Goals + Assists)
+    goal_contributions_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_contributions=Sum(F('goals') + F('assists'))) \
+        .order_by('-total_contributions')[:10]
+
+    # Clean Sheets Leader (only goalkeepers)
+    clean_sheets_leader = player_stats_in_tournament.filter(player__field_position='goalkeeper') \
+        .values('player__name', 'player__team__name') \
+        .annotate(total_clean_sheets=Sum('clean_sheets')) \
+        .order_by('-total_clean_sheets')[:10]
+
+    # Yellow Cards Leader
+    yellow_cards_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_yellow_cards=Sum('yellow_cards')) \
+        .order_by('-total_yellow_cards')[:10]
+
+    # Red Cards Leader
+    red_cards_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_red_cards=Sum('red_cards')) \
+        .order_by('-total_red_cards')[:10]
+
+    context = {
+        'tournament': tournament,
+        'season': season,
+        'active_tab': 'leaderboard',
+        'goals_leader': goals_leader,
+        'assists_leader': assists_leader,
+        'goal_contributions_leader': goal_contributions_leader,
+        'clean_sheets_leader': clean_sheets_leader,
+        'yellow_cards_leader': yellow_cards_leader,
+        'red_cards_leader': red_cards_leader,
+    }
+    return render(request, 'futbolapp/tournament_leaderboard.html', context)
+
+@login_required
+def tournament_home(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    return render(request, 'futbolapp/tournament_home.html', {'tournament': tournament, 'season': season, 'active_tab': 'home'})
+
+@login_required
+def tournament_teams(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    teams = Team.objects.filter(group__tournament=tournament).distinct()
+    return render(request, 'futbolapp/tournament_teams.html', {'tournament': tournament, 'season': season, 'teams': teams, 'active_tab': 'teams'})
+
+@login_required
+def tournament_matchdays(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    # For tournaments, matchdays are implicitly defined by TournamentMatch dates within groups
+    # We'll group matches by date for display purposes
+    matches_by_date = {}
+    tournament_matches = TournamentMatch.objects.filter(group__tournament=tournament).order_by('date')
+    for match in tournament_matches:
+        match_date = match.date.date() # Get just the date part
+        if match_date not in matches_by_date:
+            matches_by_date[match_date] = []
+        matches_by_date[match_date].append(match)
+
+    # Convert dictionary to a sorted list of (date, matches) tuples
+    sorted_match_dates = sorted(matches_by_date.items())
+
+    return render(request, 'futbolapp/tournament_matchdays.html', {'tournament': tournament, 'season': season, 'matches_by_date': sorted_match_dates, 'active_tab': 'matchdays'})
+
+@login_required
+def tournament_standings(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    groups = Group.objects.filter(tournament=tournament).order_by('name')
+    
+    group_standings_data = []
+    for group in groups:
+        standings = []
+        teams_in_group = group.teams.all()
+        for team in teams_in_group:
+            standing, created = GroupStanding.objects.get_or_create(
+                group=group,
+                team=team,
+                defaults={
+                    'position': 0,
+                    'points': 0,
+                    'matches_played': 0,
+                    'wins': 0,
+                    'draws': 0,
+                    'losses': 0,
+                    'goals_for': 0,
+                    'goals_against': 0,
+                    'goal_difference': 0,
+                }
+            )
+            standings.append(standing)
+        
+        standings.sort(key=lambda x: (x.position, -x.points, -x.goal_difference, -x.goals_for))
+        group_standings_data.append({'group': group, 'standings': standings})
+
+    return render(request, 'futbolapp/tournament_standings.html', {'tournament': tournament, 'season': season, 'group_standings_data': group_standings_data, 'active_tab': 'standings'})
+
+@login_required
+def tournament_leaderboard(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+
+    player_stats_in_tournament = TournamentPlayerStatistic.objects.filter(
+        tournament_match__group__tournament=tournament
+    )
+
+    # Goals Leader
+    goals_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_goals=Sum('goals')) \
+        .order_by('-total_goals')[:10]
+
+    # Assists Leader
+    assists_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_assists=Sum('assists')) \
+        .order_by('-total_assists')[:10]
+
+    # Goal Contributions Leader (Goals + Assists)
+    goal_contributions_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_contributions=Sum(F('goals') + F('assists'))) \
+        .order_by('-total_contributions')[:10]
+
+    # Clean Sheets Leader (only goalkeepers)
+    clean_sheets_leader = player_stats_in_tournament.filter(player__field_position='goalkeeper') \
+        .values('player__name', 'player__team__name') \
+        .annotate(total_clean_sheets=Sum('clean_sheets')) \
+        .order_by('-total_clean_sheets')[:10]
+
+    # Yellow Cards Leader
+    yellow_cards_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_yellow_cards=Sum('yellow_cards')) \
+        .order_by('-total_yellow_cards')[:10]
+
+    # Red Cards Leader
+    red_cards_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_red_cards=Sum('red_cards')) \
+        .order_by('-total_red_cards')[:10]
+
+    context = {
+        'tournament': tournament,
+        'season': season,
+        'active_tab': 'leaderboard',
+        'goals_leader': goals_leader,
+        'assists_leader': assists_leader,
+        'goal_contributions_leader': goal_contributions_leader,
+        'clean_sheets_leader': clean_sheets_leader,
+        'yellow_cards_leader': yellow_cards_leader,
+        'red_cards_leader': red_cards_leader,
+    }
+    return render(request, 'futbolapp/tournament_leaderboard.html', context)
+
+@login_required
+def tournament_home(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    return render(request, 'futbolapp/tournament_home.html', {'tournament': tournament, 'season': season, 'active_tab': 'home'})
+
+@login_required
+def tournament_teams(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    teams = Team.objects.filter(group__tournament=tournament).distinct()
+    return render(request, 'futbolapp/tournament_teams.html', {'tournament': tournament, 'season': season, 'teams': teams, 'active_tab': 'teams'})
+
+@login_required
+def tournament_matchdays(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    # For tournaments, matchdays are implicitly defined by TournamentMatch dates within groups
+    # We'll group matches by date for display purposes
+    matches_by_date = {}
+    tournament_matches = TournamentMatch.objects.filter(group__tournament=tournament).order_by('date')
+    for match in tournament_matches:
+        match_date = match.date.date() # Get just the date part
+        if match_date not in matches_by_date:
+            matches_by_date[match_date] = []
+        matches_by_date[match_date].append(match)
+
+    # Convert dictionary to a sorted list of (date, matches) tuples
+    sorted_match_dates = sorted(matches_by_date.items())
+
+    return render(request, 'futbolapp/tournament_matchdays.html', {'tournament': tournament, 'season': season, 'matches_by_date': sorted_match_dates, 'active_tab': 'matchdays'})
+
+@login_required
+def tournament_standings(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    groups = Group.objects.filter(tournament=tournament).order_by('name')
+    
+    group_standings_data = []
+    for group in groups:
+        standings = []
+        teams_in_group = group.teams.all()
+        for team in teams_in_group:
+            standing, created = GroupStanding.objects.get_or_create(
+                group=group,
+                team=team,
+                defaults={
+                    'position': 0,
+                    'points': 0,
+                    'matches_played': 0,
+                    'wins': 0,
+                    'draws': 0,
+                    'losses': 0,
+                    'goals_for': 0,
+                    'goals_against': 0,
+                    'goal_difference': 0,
+                }
+            )
+            standings.append(standing)
+        
+        standings.sort(key=lambda x: (x.position, -x.points, -x.goal_difference, -x.goals_for))
+        group_standings_data.append({'group': group, 'standings': standings})
+
+    return render(request, 'futbolapp/tournament_standings.html', {'tournament': tournament, 'season': season, 'group_standings_data': group_standings_data, 'active_tab': 'standings'})
+
+@login_required
+def tournament_leaderboard(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+
+    player_stats_in_tournament = TournamentPlayerStatistic.objects.filter(
+        tournament_match__group__tournament=tournament
+    )
+
+    # Goals Leader
+    goals_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_goals=Sum('goals')) \
+        .order_by('-total_goals')[:10]
+
+    # Assists Leader
+    assists_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_assists=Sum('assists')) \
+        .order_by('-total_assists')[:10]
+
+    # Goal Contributions Leader (Goals + Assists)
+    goal_contributions_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_contributions=Sum(F('goals') + F('assists'))) \
+        .order_by('-total_contributions')[:10]
+
+    # Clean Sheets Leader (only goalkeepers)
+    clean_sheets_leader = player_stats_in_tournament.filter(player__field_position='goalkeeper') \
+        .values('player__name', 'player__team__name') \
+        .annotate(total_clean_sheets=Sum('clean_sheets')) \
+        .order_by('-total_clean_sheets')[:10]
+
+    # Yellow Cards Leader
+    yellow_cards_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_yellow_cards=Sum('yellow_cards')) \
+        .order_by('-total_yellow_cards')[:10]
+
+    # Red Cards Leader
+    red_cards_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_red_cards=Sum('red_cards')) \
+        .order_by('-total_red_cards')[:10]
+
+    context = {
+        'tournament': tournament,
+        'season': season,
+        'active_tab': 'leaderboard',
+        'goals_leader': goals_leader,
+        'assists_leader': assists_leader,
+        'goal_contributions_leader': goal_contributions_leader,
+        'clean_sheets_leader': clean_sheets_leader,
+        'yellow_cards_leader': yellow_cards_leader,
+        'red_cards_leader': red_cards_leader,
+    }
+    return render(request, 'futbolapp/tournament_leaderboard.html', context)
+
+@login_required
+def tournament_home(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    return render(request, 'futbolapp/tournament_home.html', {'tournament': tournament, 'season': season, 'active_tab': 'home'})
+
+@login_required
+def tournament_teams(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    teams = Team.objects.filter(group__tournament=tournament).distinct()
+    return render(request, 'futbolapp/tournament_teams.html', {'tournament': tournament, 'season': season, 'teams': teams, 'active_tab': 'teams'})
+
+@login_required
+def tournament_matchdays(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    # For tournaments, matchdays are implicitly defined by TournamentMatch dates within groups
+    # We'll group matches by date for display purposes
+    matches_by_date = {}
+    tournament_matches = TournamentMatch.objects.filter(group__tournament=tournament).order_by('date')
+    for match in tournament_matches:
+        match_date = match.date.date() # Get just the date part
+        if match_date not in matches_by_date:
+            matches_by_date[match_date] = []
+        matches_by_date[match_date].append(match)
+
+    # Convert dictionary to a sorted list of (date, matches) tuples
+    sorted_match_dates = sorted(matches_by_date.items())
+
+    return render(request, 'futbolapp/tournament_matchdays.html', {'tournament': tournament, 'season': season, 'matches_by_date': sorted_match_dates, 'active_tab': 'matchdays'})
+
+@login_required
+def tournament_standings(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    groups = Group.objects.filter(tournament=tournament).order_by('name')
+    
+    group_standings_data = []
+    for group in groups:
+        standings = []
+        teams_in_group = group.teams.all()
+        for team in teams_in_group:
+            standing, created = GroupStanding.objects.get_or_create(
+                group=group,
+                team=team,
+                defaults={
+                    'position': 0,
+                    'points': 0,
+                    'matches_played': 0,
+                    'wins': 0,
+                    'draws': 0,
+                    'losses': 0,
+                    'goals_for': 0,
+                    'goals_against': 0,
+                    'goal_difference': 0,
+                }
+            )
+            standings.append(standing)
+        
+        standings.sort(key=lambda x: (x.position, -x.points, -x.goal_difference, -x.goals_for))
+        group_standings_data.append({'group': group, 'standings': standings})
+
+    return render(request, 'futbolapp/tournament_standings.html', {'tournament': tournament, 'season': season, 'group_standings_data': group_standings_data, 'active_tab': 'standings'})
+
+@login_required
+def tournament_leaderboard(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+
+    player_stats_in_tournament = TournamentPlayerStatistic.objects.filter(
+        tournament_match__group__tournament=tournament
+    )
+
+    # Goals Leader
+    goals_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_goals=Sum('goals')) \
+        .order_by('-total_goals')[:10]
+
+    # Assists Leader
+    assists_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_assists=Sum('assists')) \
+        .order_by('-total_assists')[:10]
+
+    # Goal Contributions Leader (Goals + Assists)
+    goal_contributions_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_contributions=Sum(F('goals') + F('assists'))) \
+        .order_by('-total_contributions')[:10]
+
+    # Clean Sheets Leader (only goalkeepers)
+    clean_sheets_leader = player_stats_in_tournament.filter(player__field_position='goalkeeper') \
+        .values('player__name', 'player__team__name') \
+        .annotate(total_clean_sheets=Sum('clean_sheets')) \
+        .order_by('-total_clean_sheets')[:10]
+
+    # Yellow Cards Leader
+    yellow_cards_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_yellow_cards=Sum('yellow_cards')) \
+        .order_by('-total_yellow_cards')[:10]
+
+    # Red Cards Leader
+    red_cards_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_red_cards=Sum('red_cards')) \
+        .order_by('-total_red_cards')[:10]
+
+    context = {
+        'tournament': tournament,
+        'season': season,
+        'active_tab': 'leaderboard',
+        'goals_leader': goals_leader,
+        'assists_leader': assists_leader,
+        'goal_contributions_leader': goal_contributions_leader,
+        'clean_sheets_leader': clean_sheets_leader,
+        'yellow_cards_leader': yellow_cards_leader,
+        'red_cards_leader': red_cards_leader,
+    }
+    return render(request, 'futbolapp/tournament_leaderboard.html', context)
+
+@login_required
+def tournament_home(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    return render(request, 'futbolapp/tournament_home.html', {'tournament': tournament, 'season': season, 'active_tab': 'home'})
+
+@login_required
+def tournament_teams(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    teams = Team.objects.filter(group__tournament=tournament).distinct()
+    return render(request, 'futbolapp/tournament_teams.html', {'tournament': tournament, 'season': season, 'teams': teams, 'active_tab': 'teams'})
+
+@login_required
+def tournament_matchdays(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    # For tournaments, matchdays are implicitly defined by TournamentMatch dates within groups
+    # We'll group matches by date for display purposes
+    matches_by_date = {}
+    tournament_matches = TournamentMatch.objects.filter(group__tournament=tournament).order_by('date')
+    for match in tournament_matches:
+        match_date = match.date.date() # Get just the date part
+        if match_date not in matches_by_date:
+            matches_by_date[match_date] = []
+        matches_by_date[match_date].append(match)
+
+    # Convert dictionary to a sorted list of (date, matches) tuples
+    sorted_match_dates = sorted(matches_by_date.items())
+
+    return render(request, 'futbolapp/tournament_matchdays.html', {'tournament': tournament, 'season': season, 'matches_by_date': sorted_match_dates, 'active_tab': 'matchdays'})
+
+@login_required
+def tournament_standings(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    groups = Group.objects.filter(tournament=tournament).order_by('name')
+    
+    group_standings_data = []
+    for group in groups:
+        standings = []
+        teams_in_group = group.teams.all()
+        for team in teams_in_group:
+            standing, created = GroupStanding.objects.get_or_create(
+                group=group,
+                team=team,
+                defaults={
+                    'position': 0,
+                    'points': 0,
+                    'matches_played': 0,
+                    'wins': 0,
+                    'draws': 0,
+                    'losses': 0,
+                    'goals_for': 0,
+                    'goals_against': 0,
+                    'goal_difference': 0,
+                }
+            )
+            standings.append(standing)
+        
+        standings.sort(key=lambda x: (x.position, -x.points, -x.goal_difference, -x.goals_for))
+        group_standings_data.append({'group': group, 'standings': standings})
+
+    return render(request, 'futbolapp/tournament_standings.html', {'tournament': tournament, 'season': season, 'group_standings_data': group_standings_data, 'active_tab': 'standings'})
+
+@login_required
+def tournament_leaderboard(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+
+    player_stats_in_tournament = TournamentPlayerStatistic.objects.filter(
+        tournament_match__group__tournament=tournament
+    )
+
+    # Goals Leader
+    goals_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_goals=Sum('goals')) \
+        .order_by('-total_goals')[:10]
+
+    # Assists Leader
+    assists_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_assists=Sum('assists')) \
+        .order_by('-total_assists')[:10]
+
+    # Goal Contributions Leader (Goals + Assists)
+    goal_contributions_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_contributions=Sum(F('goals') + F('assists'))) \
+        .order_by('-total_contributions')[:10]
+
+    # Clean Sheets Leader (only goalkeepers)
+    clean_sheets_leader = player_stats_in_tournament.filter(player__field_position='goalkeeper') \
+        .values('player__name', 'player__team__name') \
+        .annotate(total_clean_sheets=Sum('clean_sheets')) \
+        .order_by('-total_clean_sheets')[:10]
+
+    # Yellow Cards Leader
+    yellow_cards_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_yellow_cards=Sum('yellow_cards')) \
+        .order_by('-total_yellow_cards')[:10]
+
+    # Red Cards Leader
+    red_cards_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_red_cards=Sum('red_cards')) \
+        .order_by('-total_red_cards')[:10]
+
+    context = {
+        'tournament': tournament,
+        'season': season,
+        'active_tab': 'leaderboard',
+        'goals_leader': goals_leader,
+        'assists_leader': assists_leader,
+        'goal_contributions_leader': goal_contributions_leader,
+        'clean_sheets_leader': clean_sheets_leader,
+        'yellow_cards_leader': yellow_cards_leader,
+        'red_cards_leader': red_cards_leader,
+    }
+    return render(request, 'futbolapp/tournament_leaderboard.html', context)
+
+@login_required
+def tournament_home(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    return render(request, 'futbolapp/tournament_home.html', {'tournament': tournament, 'season': season, 'active_tab': 'home'})
+
+@login_required
+def tournament_teams(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    teams = Team.objects.filter(group__tournament=tournament).distinct()
+    return render(request, 'futbolapp/tournament_teams.html', {'tournament': tournament, 'season': season, 'teams': teams, 'active_tab': 'teams'})
+
+@login_required
+def tournament_matchdays(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    # For tournaments, matchdays are implicitly defined by TournamentMatch dates within groups
+    # We'll group matches by date for display purposes
+    matches_by_date = {}
+    tournament_matches = TournamentMatch.objects.filter(group__tournament=tournament).order_by('date')
+    for match in tournament_matches:
+        match_date = match.date.date() # Get just the date part
+        if match_date not in matches_by_date:
+            matches_by_date[match_date] = []
+        matches_by_date[match_date].append(match)
+
+    # Convert dictionary to a sorted list of (date, matches) tuples
+    sorted_match_dates = sorted(matches_by_date.items())
+
+    return render(request, 'futbolapp/tournament_matchdays.html', {'tournament': tournament, 'season': season, 'matches_by_date': sorted_match_dates, 'active_tab': 'matchdays'})
+
+@login_required
+def tournament_standings(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    groups = Group.objects.filter(tournament=tournament).order_by('name')
+    
+    group_standings_data = []
+    for group in groups:
+        standings = []
+        teams_in_group = group.teams.all()
+        for team in teams_in_group:
+            standing, created = GroupStanding.objects.get_or_create(
+                group=group,
+                team=team,
+                defaults={
+                    'position': 0,
+                    'points': 0,
+                    'matches_played': 0,
+                    'wins': 0,
+                    'draws': 0,
+                    'losses': 0,
+                    'goals_for': 0,
+                    'goals_against': 0,
+                    'goal_difference': 0,
+                }
+            )
+            standings.append(standing)
+        
+        standings.sort(key=lambda x: (x.position, -x.points, -x.goal_difference, -x.goals_for))
+        group_standings_data.append({'group': group, 'standings': standings})
+
+    return render(request, 'futbolapp/tournament_standings.html', {'tournament': tournament, 'season': season, 'group_standings_data': group_standings_data, 'active_tab': 'standings'})
+
+@login_required
+def tournament_leaderboard(request, tournament_id, season_id):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+
+    player_stats_in_tournament = TournamentPlayerStatistic.objects.filter(
+        tournament_match__group__tournament=tournament
+    )
+
+    # Goals Leader
+    goals_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_goals=Sum('goals')) \
+        .order_by('-total_goals')[:10]
+
+    # Assists Leader
+    assists_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_assists=Sum('assists')) \
+        .order_by('-total_assists')[:10]
+
+    # Goal Contributions Leader (Goals + Assists)
+    goal_contributions_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_contributions=Sum(F('goals') + F('assists'))) \
+        .order_by('-total_contributions')[:10]
+
+    # Clean Sheets Leader (only goalkeepers)
+    clean_sheets_leader = player_stats_in_tournament.filter(player__field_position='goalkeeper') \
+        .values('player__name', 'player__team__name') \
+        .annotate(total_clean_sheets=Sum('clean_sheets')) \
+        .order_by('-total_clean_sheets')[:10]
+
+    # Yellow Cards Leader
+    yellow_cards_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_yellow_cards=Sum('yellow_cards')) \
+        .order_by('-total_yellow_cards')[:10]
+
+    # Red Cards Leader
+    red_cards_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_red_cards=Sum('red_cards')) \
+        .order_by('-total_red_cards')[:10]
+
+    context = {
+        'tournament': tournament,
+        'season': season,
+        'active_tab': 'leaderboard',
+        'goals_leader': goals_leader,
+        'assists_leader': assists_leader,
+        'goal_contributions_leader': goal_contributions_leader,
+        'clean_sheets_leader': clean_sheets_leader,
+        'yellow_cards_leader': yellow_cards_leader,
+        'red_cards_leader': red_cards_leader,
+    }
+    return render(request, 'futbolapp/tournament_leaderboard.html', context)

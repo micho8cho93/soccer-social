@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.core.exceptions import ValidationError
 
 class League(models.Model):
     name = models.CharField(max_length=100)
@@ -12,24 +13,46 @@ class League(models.Model):
         return self.name
 
 class Season(models.Model):
-    league = models.ForeignKey(League, on_delete=models.CASCADE)
+    league = models.ForeignKey(League, on_delete=models.CASCADE, null=True, blank=True)
+    tournament = models.ForeignKey('Tournament', on_delete=models.CASCADE, null=True, blank=True) # New field
     year = models.IntegerField()
     is_current = models.BooleanField(default=False)
 
     def __str__(self):
-        return f"{self.league.name} - {self.year}"
+        if self.league:
+            return f"{self.league.name} - {self.year}"
+        elif self.tournament:
+            return f"{self.tournament.name} - {self.year}"
+        return f"Season {self.year}"
+
+    def clean(self):
+        if self.league and self.tournament:
+            raise ValidationError("A season cannot be associated with both a league and a tournament.")
+        if not self.league and not self.tournament:
+            raise ValidationError("A season must be associated with either a league or a tournament.")
 
     def save(self, *args, **kwargs):
+        self.full_clean() # Call clean method before saving
         is_new = self.pk is None  # Check if this is a new season
         super().save(*args, **kwargs)  # Save the Season object first
         if is_new:
-            teams = Team.objects.filter(league=self.league)
-            for team in teams:
-                LeagueStanding.objects.get_or_create(team=team, season=self)
+            if self.league:
+                teams = Team.objects.filter(league=self.league)
+                for team in teams:
+                    LeagueStanding.objects.get_or_create(team=team, season=self)
+            # No automatic GroupStanding creation here, as groups are defined within Tournament
 
 class Team(models.Model):
     name = models.CharField(max_length=100)
-    league = models.ForeignKey(League, on_delete=models.CASCADE)
+    league = models.ForeignKey(League, on_delete=models.CASCADE, null=True, blank=True)
+    tournament = models.ForeignKey('Tournament', on_delete=models.CASCADE, null=True, blank=True) # New field
+
+    def clean(self):
+        if self.league and self.tournament:
+            raise ValidationError("A team cannot be associated with both a league and a tournament.")
+        if not self.league and not self.tournament:
+            raise ValidationError("A team must be associated with either a league or a tournament.")
+
     def __str__(self):
         return self.name
 
@@ -45,6 +68,8 @@ class Matchday(models.Model):
     season = models.ForeignKey(Season, on_delete=models.CASCADE)
     number = models.PositiveIntegerField()
     date = models.DateField()
+    title = models.CharField(max_length=100, blank=True, null=True) # New field for title
+
     class Meta:
         ordering = ['season', 'number']
         unique_together = ('season', 'number')
@@ -196,12 +221,12 @@ class Profile(models.Model):
 # Tournament Models
 class Tournament(models.Model):
     name = models.CharField(max_length=100)
-    season = models.ForeignKey(Season, on_delete=models.CASCADE)
+    # Removed season field from here
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.name} ({self.season.year})"
+        return self.name # Changed to just name, as season is now on Season model
 
 class Group(models.Model):
     name = models.CharField(max_length=100)
@@ -221,6 +246,7 @@ class TournamentMatch(models.Model):
     home_score = models.PositiveIntegerField(null=True, blank=True)
     away_score = models.PositiveIntegerField(null=True, blank=True)
     date = models.DateTimeField()
+    title = models.CharField(max_length=100, blank=True, null=True) # New field for title
 
     class Meta:
         unique_together = ('group', 'home_team', 'away_team')

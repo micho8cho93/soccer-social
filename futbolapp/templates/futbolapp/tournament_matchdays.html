@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1 class="text-3xl font-bold mb-6 text-center">Match Days for {{ tournament.name }} - Season {{ season.year }}</h1>
+    <nav class="mb-6 p-4 bg-white rounded-lg shadow-md border border-gray-200">
+        <ul class="flex flex-wrap justify-center space-x-4">
+            {% if active_tab != 'home' %}
+                <li><a href="{% url 'tournament_home' tournament.id season.id %}" class="text-primary-blue hover:text-primary-red font-semibold">Home</a></li>
+            {% endif %}
+            {% if active_tab != 'teams' %}
+                <li><a href="{% url 'tournament_teams' tournament.id season.id %}" class="text-primary-blue hover:text-primary-red font-semibold">Teams</a></li>
+            {% endif %}
+            {% if active_tab != 'standings' %}
+                <li><a href="{% url 'tournament_standings' tournament.id season.id %}" class="text-primary-blue hover:text-primary-red font-semibold">Standings</a></li>
+            {% endif %}
+            {% if active_tab != 'leaderboard' %}
+                <li><a href="{% url 'tournament_leaderboard' tournament.id season.id %}" class="text-primary-blue hover:text-primary-red font-semibold">Leaderboard</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+    <div class="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+        {% if matches_by_date %}
+            {% for date, matches in matches_by_date %}
+                <h2 class="text-2xl font-semibold mb-4 mt-6">{{ date|date:"F j, Y" }}</h2>
+                <ul class="space-y-4">
+                    {% for match in matches %}
+                        <li class="p-4 bg-gray-50 rounded-md border border-gray-200">
+                            <p class="text-lg font-medium">{{ match.home_team.name }} vs {{ match.away_team.name }} - {{ match.date|date:"H:i" }}</p>
+                            {% if match.title %}
+                                <p class="text-gray-600 text-sm">{{ match.title }}</p>
+                            {% endif %}
+                            <p class="text-gray-700">Score: {{ match.home_score|default_if_none:"-" }} - {{ match.away_score|default_if_none:"-" }}</p>
+                            <div class="mt-2 flex space-x-4">
+                                {% if match.home_score is not None and match.away_score is not None %}
+                                    <a href="{% url 'tournament_match_statistics' match.id %}" class="text-primary-blue hover:text-primary-red font-semibold">Stats</a>
+                                {% endif %}
+                                <a href="{% url 'tournament_match_roster_view' match.id %}" class="text-primary-blue hover:text-primary-red font-semibold">Roster</a>
+
+                                {% if user.is_authenticated %}
+                                    {% if user.is_superuser or user.profile.team == match.home_team or user.profile.team == match.away_team %}
+                                        {% if match.date|date:"Y-m-d H:i" > "now"|date:"Y-m-d H:i" %}
+                                            <a href="{% url 'update_tournament_roster_view' match.id %}" class="text-supporting-green hover:text-primary-red font-semibold">Update Roster</a>
+                                        {% endif %}
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% endfor %}
+        {% else %}
+            <p class="text-gray-700">No matches found for this tournament.</p>
+        {% endif %}
+    </div>
+{% endblock %}
