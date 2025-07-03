@@ -126,6 +126,7 @@ STATICFILES_DIRS = [
     BASE_DIR / 'futbolapp/static',
 ]
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 
 LOGIN_REDIRECT_URL = '/futbol/' # Redirect to league selection after login
