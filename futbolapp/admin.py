@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django import forms
 from datetime import datetime
-from .models import League, Season, Team, Player, Matchday, Match, PlayerStatistic, LeagueStanding, Profile
+from .models import League, Season, Team, Player, Matchday, Match, PlayerStatistic, LeagueStanding, Profile, Tournament, Group, TournamentMatch, TournamentPlayerStatistic, GroupStanding
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
 
@@ -170,3 +170,54 @@ class UserAdmin(BaseUserAdmin):
 
 admin.site.unregister(User)
 admin.site.register(User, UserAdmin)
+
+
+# Tournament Admin
+class GroupInline(admin.TabularInline):
+    model = Group
+    extra = 1
+    fields = ('name', 'teams')
+    filter_horizontal = ('teams',)
+
+class TournamentMatchInline(admin.TabularInline):
+    model = TournamentMatch
+    extra = 1
+    fk_name = 'group'
+    fields = ('home_team', 'away_team', 'home_score', 'away_score', 'date')
+
+@admin.register(Group)
+class GroupAdmin(admin.ModelAdmin):
+    list_display = ('name', 'tournament')
+    list_filter = ('tournament',)
+    inlines = [TournamentMatchInline]
+    exclude = ('teams',)
+
+@admin.register(Tournament)
+class TournamentAdmin(admin.ModelAdmin):
+    list_display = ('name', 'season')
+    list_filter = ('season',)
+    inlines = [GroupInline]
+
+@admin.register(TournamentMatch)
+class TournamentMatchAdmin(admin.ModelAdmin):
+    list_display = ('home_team', 'away_team', 'home_score', 'away_score', 'group', 'date')
+    list_filter = ('group__tournament__season', 'group__tournament', 'group')
+    search_fields = ('home_team__name', 'away_team__name')
+
+class TournamentPlayerStatisticInline(admin.TabularInline):
+    model = TournamentPlayerStatistic
+    extra = 1
+    fields = ('player', 'goals', 'assists', 'clean_sheets', 'yellow_cards', 'red_cards', 'present')
+
+@admin.register(TournamentPlayerStatistic)
+class TournamentPlayerStatisticAdmin(admin.ModelAdmin):
+    list_display = ('player', 'tournament_match', 'present', 'goals', 'assists', 'clean_sheets')
+    list_filter = ('player__team', 'tournament_match__group__tournament__season')
+    search_fields = ('player__name',)
+
+@admin.register(GroupStanding)
+class GroupStandingAdmin(admin.ModelAdmin):
+    list_display = ('position', 'team', 'group', 'points', 'matches_played', 'wins', 'draws', 'losses', 'goals_for', 'goals_against', 'goal_difference')
+    list_filter = ('group__tournament', 'group')
+    readonly_fields = ('goal_difference',)
+    ordering = ('group', 'position')

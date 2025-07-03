@@ -1,5 +1,5 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from .models import Matchday, Match, Team, Player, PlayerStatistic, LeagueStanding, Season, League
+from .models import Matchday, Match, Team, Player, PlayerStatistic, LeagueStanding, Season, League, Tournament, Group, TournamentMatch, TournamentPlayerStatistic, GroupStanding
 from django.db.models import Sum, F
 from django.http import JsonResponse, HttpResponseForbidden
 from django.contrib.auth.decorators import login_required
