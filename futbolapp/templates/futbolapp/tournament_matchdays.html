@@ -32,16 +32,7 @@
                             <p class="text-gray-700">Score: {{ match.home_score|default_if_none:"-" }} - {{ match.away_score|default_if_none:"-" }}</p>
                             <div class="mt-2 flex space-x-4">
                                 {% if match.home_score is not None and match.away_score is not None %}
-                                    <a href="{% url 'tournament_match_statistics' match.id %}" class="text-primary-blue hover:text-primary-red font-semibold">Stats</a>
-                                {% endif %}
-                                <a href="{% url 'tournament_match_roster_view' match.id %}" class="text-primary-blue hover:text-primary-red font-semibold">Roster</a>
-
-                                {% if user.is_authenticated %}
-                                    {% if user.is_superuser or user.profile.team == match.home_team or user.profile.team == match.away_team %}
-                                        {% if match.date|date:"Y-m-d H:i" > "now"|date:"Y-m-d H:i" %}
-                                            <a href="{% url 'update_tournament_roster_view' match.id %}" class="text-supporting-green hover:text-primary-red font-semibold">Update Roster</a>
-                                        {% endif %}
-                                    {% endif %}
+                                    <a href="{% url 'tournament_match_statistics' tournament.id season.id match.id %}" class="text-primary-blue hover:text-primary-red font-semibold">Stats</a>
                                 {% endif %}
                             </div>
                         </li>

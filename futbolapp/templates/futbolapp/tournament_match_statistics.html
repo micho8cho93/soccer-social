@@ -45,6 +45,6 @@
             <p class="text-gray-700">No player statistics recorded for this match.</p>
         {% endif %}
 
-        <p class="mt-6 text-center"><a href="{% url 'tournament_matchdays' match.group.tournament.id match.group.tournament.season.id %}" class="text-primary-blue hover:text-primary-red font-semibold">Back to Tournament Matchdays</a></p>
+        <p class="mt-6 text-center"><a href="{% url 'tournament_matchdays' tournament_id season_id %}" class="text-primary-blue hover:text-primary-red font-semibold">Back to Tournament Matchdays</a></p>
     </div>
 {% endblock %}

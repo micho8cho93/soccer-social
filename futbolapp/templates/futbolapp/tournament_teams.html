@@ -22,7 +22,7 @@
         <h2 class="text-2xl font-semibold mb-4">Participating Teams</h2>
         <ul class="space-y-2">
             {% for team in teams %}
-                <li><span class="block p-3 bg-gray-50 rounded-md border border-gray-200 text-gray-800 font-medium">{{ team.name }}</span></li>
+                <li><a href="{% url 'tournament_team_detail' tournament.id season.id team.id %}" class="block p-3 bg-gray-50 hover:bg-gray-100 rounded-md border border-gray-200 text-primary-blue font-medium">{{ team.name }}</a></li>
             {% empty %}
                 <li class="text-gray-700">No teams found for this tournament.</li>
             {% endfor %}
