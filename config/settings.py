@@ -82,7 +82,7 @@ DATABASES = {
         conn_max_age=600
     )
 }
-
+DATABASE_URL = 'postgresql://postgres:crTRBspPHKXZyrSggzHJczStZCqoDxTi@postgres.railway.internal:5432/railway'
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
