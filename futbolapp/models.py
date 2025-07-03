@@ -74,6 +74,11 @@ class Match(models.Model):
 
         super().save(*args, **kwargs)
 
+        # Ensure PlayerStatistic entries exist for all players in both teams
+        for team in [self.home_team, self.away_team]:
+            for player in team.player_set.all():
+                PlayerStatistic.objects.get_or_create(player=player, match=self)
+
         teams_to_update = {self.home_team, self.away_team}
         if old_match:
             teams_to_update.add(old_match.home_team)
@@ -103,6 +108,8 @@ class PlayerStatistic(models.Model):
     clean_sheets = models.PositiveIntegerField(default=0)
     yellow_cards = models.PositiveIntegerField(default=0)
     red_cards = models.PositiveIntegerField(default=0)
+    present = models.BooleanField(default=False) # New field for presence
+
     class Meta:
         unique_together = ('player', 'match')
     def __str__(self):
@@ -185,7 +192,3 @@ class Profile(models.Model):
     def __str__(self):
         return f"{self.user.username}'s profile"
 
-# Removed: @receiver(post_save, sender=User)
-# Removed: def create_user_profile(sender, instance, created, **kwargs):
-# Removed:     if created:
-# Removed:         Profile.objects.get_or_create(user=instance)

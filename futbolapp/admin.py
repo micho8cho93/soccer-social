@@ -67,6 +67,7 @@ class MatchdayAdmin(admin.ModelAdmin):
 class PlayerStatisticInline(admin.TabularInline):
     model = PlayerStatistic
     extra = 1
+    fields = ('player', 'present', 'goals', 'assists', 'clean_sheets', 'yellow_cards', 'red_cards')
 
 @admin.register(Match)
 class MatchAdmin(admin.ModelAdmin):
@@ -81,7 +82,7 @@ class MatchAdmin(admin.ModelAdmin):
 
 @admin.register(PlayerStatistic)
 class PlayerStatisticAdmin(admin.ModelAdmin):
-    list_display = ('player', 'match', 'goals', 'assists', 'clean_sheets')
+    list_display = ('player', 'match', 'present', 'goals', 'assists', 'clean_sheets')
     list_filter = ('player__team', 'match__matchday__season')
     search_fields = ('player__name',)
 

@@ -121,6 +121,20 @@ def match_statistics(request, match_id):
     return render(request, 'futbolapp/match_statistics.html', {'match': match, 'player_stats': player_stats})
 
 @login_required
+def match_roster_view(request, match_id):
+    """
+    View for displaying the roster (player presence) for a specific match.
+    """
+    match = get_object_or_404(Match, pk=match_id)
+    home_team_players = PlayerStatistic.objects.filter(match=match, player__team=match.home_team).order_by('player__name')
+    away_team_players = PlayerStatistic.objects.filter(match=match, player__team=match.away_team).order_by('player__name')
+    return render(request, 'futbolapp/match_roster.html', {
+        'match': match,
+        'home_team_players': home_team_players,
+        'away_team_players': away_team_players
+    })
+
+@login_required
 def team_detail(request, team_id):
     """
     View for a single team, showing all their players and individual statistics.
