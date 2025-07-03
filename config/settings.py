@@ -117,6 +117,12 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
 STATIC_URL = 'static/'
+STATICFILES_DIRS = [
+    BASE_DIR / 'futbolapp/static',
+]
+
+LOGIN_REDIRECT_URL = '/futbol/' # Redirect to league selection after login
+LOGIN_URL = '/login/' # URL for the login page
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field

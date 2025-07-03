@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1 class="text-3xl font-bold mb-6 text-center">Leaderboard - {{ league.name }} - Season {{ season.year }}</h1>
+    <nav class="mb-6 p-4 bg-white rounded-lg shadow-md border border-gray-200">
+        <ul class="flex flex-wrap justify-center space-x-4">
+            {% if active_tab != 'home' %}
+                <li><a href="{% url 'league_home' league.id season.id %}" class="text-primary-blue hover:text-primary-red font-semibold">Home</a></li>
+            {% endif %}
+            {% if active_tab != 'teams' %}
+                <li><a href="{% url 'team_list' league.id season.id %}" class="text-primary-blue hover:text-primary-red font-semibold">Teams</a></li>
+            {% endif %}
+            {% if active_tab != 'matchdays' %}
+                <li><a href="{% url 'league_matchday_list' league.id season.id %}" class="text-primary-blue hover:text-primary-red font-semibold">Matchdays</a></li>
+            {% endif %}
+            {% if active_tab != 'standings' %}
+                <li><a href="{% url 'league_standings_view' league.id season.id %}" class="text-primary-blue hover:text-primary-red font-semibold">Standings</a></li>
+            {% endif %}
+            {% if active_tab != 'leaderboard' %}
+                <li><a href="{% url 'leaderboard_view' league.id season.id %}" class="text-primary-blue hover:text-primary-red font-semibold">Leaderboard</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+
+    <div class="bg-white p-6 rounded-lg shadow-md border border-gray-200 space-y-8">
+        <div>
+            <h2 class="text-2xl font-semibold mb-4">Goals</h2>
+            {% if goals_leader %}
+                <ol class="list-decimal list-inside space-y-1">
+                    {% for player_stat in goals_leader %}
+                        <li class="text-gray-700">{{ player_stat.player__name }} (<span class="font-medium">{{ player_stat.player__team__name }}</span>) - <span class="font-bold">{{ player_stat.total_goals }}</span> goals</li>
+                    {% endfor %}
+                </ol>
+            {% else %}
+                <p class="text-gray-700">No data available.</p>
+            {% endif %}
+        </div>
+
+        <div>
+            <h2 class="text-2xl font-semibold mb-4">Assists</h2>
+            {% if assists_leader %}
+                <ol class="list-decimal list-inside space-y-1">
+                    {% for player_stat in assists_leader %}
+                        <li class="text-gray-700">{{ player_stat.player__name }} (<span class="font-medium">{{ player_stat.player__team__name }}</span>) - <span class="font-bold">{{ player_stat.total_assists }}</span> assists</li>
+                    {% endfor %}
+                </ol>
+            {% else %}
+                <p class="text-gray-700">No data available.</p>
+            {% endif %}
+        </div>
+
+        <div>
+            <h2 class="text-2xl font-semibold mb-4">Goal Contributions</h2>
+            {% if goal_contributions_leader %}
+                <ol class="list-decimal list-inside space-y-1">
+                    {% for player_stat in goal_contributions_leader %}
+                        <li class="text-gray-700">{{ player_stat.player__name }} (<span class="font-medium">{{ player_stat.player__team__name }}</span>) - <span class="font-bold">{{ player_stat.total_contributions }}</span> contributions</li>
+                    {% endfor %}
+                </ol>
+            {% else %}
+                <p class="text-gray-700">No data available.</p>
+            {% endif %}
+        </div>
+
+        <div>
+            <h2 class="text-2xl font-semibold mb-4">Clean Sheets</h2>
+            {% if clean_sheets_leader %}
+                <ol class="list-decimal list-inside space-y-1">
+                    {% for player_stat in clean_sheets_leader %}
+                        <li class="text-gray-700">{{ player_stat.player__name }} (<span class="font-medium">{{ player_stat.player__team__name }}</span>) - <span class="font-bold">{{ player_stat.total_clean_sheets }}</span> clean sheets</li>
+                    {% endfor %}
+                </ol>
+            {% else %}
+                <p class="text-gray-700">No data available.</p>
+            {% endif %}
+        </div>
+
+        <div>
+            <h2 class="text-2xl font-semibold mb-4">Yellow Cards</h2>
+            {% if yellow_cards_leader %}
+                <ol class="list-decimal list-inside space-y-1">
+                    {% for player_stat in yellow_cards_leader %}
+                        <li class="text-gray-700">{{ player_stat.player__name }} (<span class="font-medium">{{ player_stat.player__team__name }}</span>) - <span class="font-bold">{{ player_stat.total_yellow_cards }}</span> yellow cards</li>
+                    {% endfor %}
+                </ol>
+            {% else %}
+                <p class="text-gray-700">No data available.</p>
+            {% endif %}
+        </div>
+
+        <div>
+            <h2 class="text-2xl font-semibold mb-4">Red Cards</h2>
+            {% if red_cards_leader %}
+                <ol class="list-decimal list-inside space-y-1">
+                    {% for player_stat in red_cards_leader %}
+                        <li class="text-gray-700">{{ player_stat.player__name }} (<span class="font-medium">{{ player_stat.player__team__name }}</span>) - <span class="font-bold">{{ player_stat.total_red_cards }}</span> red cards</li>
+                    {% endfor %}
+                </ol>
+            {% else %}
+                <p class="text-gray-700">No data available.</p>
+            {% endif %}
+        </div>
+    </div>
+{% endblock %}

@@ -1,7 +1,9 @@
 from django.contrib import admin
 from django import forms
 from datetime import datetime
-from .models import League, Season, Team, Player, Matchday, Match, PlayerStatistic, LeagueStanding
+from .models import League, Season, Team, Player, Matchday, Match, PlayerStatistic, LeagueStanding, Profile, Tournament, Group, TournamentMatch, TournamentPlayerStatistic, GroupStanding
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.contrib.auth.models import User
 
 class TeamInline(admin.TabularInline):
     model = Team
@@ -12,16 +14,57 @@ class LeagueAdmin(admin.ModelAdmin):
     list_display = ('name', 'created_at')
     inlines = [TeamInline]
 
+class SeasonAdminForm(forms.ModelForm):
+    class Meta:
+        model = Season
+        fields = '__all__'
+
+    def clean(self):
+        cleaned_data = super().clean()
+        league = cleaned_data.get('league')
+        tournament = cleaned_data.get('tournament')
+
+        if league and tournament:
+            raise forms.ValidationError("A season cannot be associated with both a league and a tournament.")
+        if not league and not tournament:
+            raise forms.ValidationError("A season must be associated with either a league or a tournament.")
+        return cleaned_data
+
 @admin.register(Season)
 class SeasonAdmin(admin.ModelAdmin):
-    list_display = ('year', 'league', 'is_current')
-    list_filter = ('league',)
+    form = SeasonAdminForm
+    list_display = ('year', 'league', 'tournament', 'is_current')
+    list_filter = ('league', 'tournament',)
+
+# New PlayerInline class
+class PlayerInline(admin.TabularInline):
+    model = Player
+    extra = 1
+    fields = ('name', 'field_position', 'role')
+
+class TeamAdminForm(forms.ModelForm):
+    class Meta:
+        model = Team
+        fields = '__all__'
+
+    def clean(self):
+        cleaned_data = super().clean()
+        league = cleaned_data.get('league')
+        tournament = cleaned_data.get('tournament')
+
+        if league and tournament:
+            raise forms.ValidationError("A team cannot be associated with both a league and a tournament.")
+        if not league and not tournament:
+            raise forms.ValidationError("A team must be associated with either a league or a tournament.")
+        return cleaned_data
 
 @admin.register(Team)
 class TeamAdmin(admin.ModelAdmin):
-    list_display = ('name', 'league')
-    list_filter = ('league',)
+    form = TeamAdminForm
+    list_display = ('name', 'league', 'tournament') # Added tournament
+    list_filter = ('league', 'tournament',)
     search_fields = ('name',)
+    inlines = [PlayerInline] # Add PlayerInline here
 
 @admin.register(Player)
 class PlayerAdmin(admin.ModelAdmin):
@@ -56,19 +99,107 @@ class MatchInline(admin.TabularInline):
     extra = 1
     fk_name = 'matchday'
 
+class TournamentMatchdayInline(admin.TabularInline):
+    model = TournamentMatch
+    extra = 1
+    fk_name = 'matchday' # This will be the foreign key to Matchday
+    fields = ('home_team', 'away_team', 'home_score', 'away_score', 'date', 'title')
+
 @admin.register(Matchday)
 class MatchdayAdmin(admin.ModelAdmin):
-    list_display = ('number', 'season', 'date')
+    list_display = ('number', 'season', 'date', 'title') # Added title
     list_filter = ('season',)
-    inlines = [MatchInline]
+    inlines = [MatchInline] # Removed TournamentMatchdayInline
+    fieldsets = (
+        (None, {
+            'fields': ('season', 'number', 'date', 'title'), # Added title
+        }),
+    )
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "season":
+            kwargs["queryset"] = Season.objects.filter(league__isnull=False) # Only show league seasons
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+# Custom form for Match Admin to handle rosters
+class MatchAdminForm(forms.ModelForm):
+    class Meta:
+        model = Match
+        fields = '__all__'
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            match = self.instance
+            home_players = Player.objects.filter(team=match.home_team)
+            away_players = Player.objects.filter(team=match.away_team)
+
+            # Add dynamic fields for home team players
+            for player in home_players:
+                field_name = f'home_player_{player.id}_present'
+                initial_value = PlayerStatistic.objects.filter(player=player, match=match, present=True).exists()
+                self.fields[field_name] = forms.BooleanField(
+                    label=f'{player.name}',
+                    required=False,
+                    initial=initial_value
+                )
+            
+            # Add dynamic fields for away team players
+            for player in away_players:
+                field_name = f'away_player_{player.id}_present'
+                initial_value = PlayerStatistic.objects.filter(player=player, match=match, present=True).exists()
+                self.fields[field_name] = forms.BooleanField(
+                    label=f'{player.name}',
+                    required=False,
+                    initial=initial_value
+                )
 
 class PlayerStatisticInline(admin.TabularInline):
     model = PlayerStatistic
     extra = 1
+    fields = ('player', 'goals', 'assists', 'clean_sheets', 'yellow_cards', 'red_cards') # Removed 'present' here
+    readonly_fields = ('player',)
+
+@admin.register(Match)
+class MatchAdmin(admin.ModelAdmin):
+    form = MatchAdminForm # Use the custom form
+    list_display = ('home_team', 'away_team', 'home_score', 'away_score', 'matchday', 'date')
+    list_filter = ('matchday', 'matchday__season')
+    search_fields = ('home_team__name', 'away_team__name')
+    change_form_template = "admin/futbolapp/match/change_form.html" # Custom template
+    inlines = [PlayerStatisticInline] # Re-added PlayerStatisticInline
+
+    fieldsets = (
+        (None, {
+            'fields': ('matchday', 'home_team', 'away_team', 'home_score', 'away_score', 'date'),
+        }),
+    )
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+
+        # Process dynamic roster fields
+        home_players = Player.objects.filter(team=obj.home_team)
+        away_players = Player.objects.filter(team=obj.away_team)
+
+        for player in home_players:
+            field_name = f'home_player_{player.id}_present'
+            is_present = form.cleaned_data.get(field_name, False)
+            player_stat, created = PlayerStatistic.objects.get_or_create(player=player, match=obj)
+            player_stat.present = is_present
+            player_stat.save()
+        
+        for player in away_players:
+            field_name = f'away_player_{player.id}_present'
+            is_present = form.cleaned_data.get(field_name, False)
+            player_stat, created = PlayerStatistic.objects.get_or_create(player=player, match=obj)
+            player_stat.present = is_present
+            player_stat.save()
+
 
 @admin.register(PlayerStatistic)
 class PlayerStatisticAdmin(admin.ModelAdmin):
-    list_display = ('player', 'match', 'goals', 'assists', 'clean_sheets')
+    list_display = ('player', 'match', 'present', 'goals', 'assists', 'clean_sheets')
     list_filter = ('player__team', 'match__matchday__season')
     search_fields = ('player__name',)
 
@@ -78,3 +209,65 @@ class LeagueStandingAdmin(admin.ModelAdmin):
     list_filter = ('season',)
     readonly_fields = ('goal_difference',)
     ordering = ('season', 'position')
+
+class ProfileInline(admin.StackedInline):
+    model = Profile
+    can_delete = False
+    verbose_name_plural = 'profile'
+
+class UserAdmin(BaseUserAdmin):
+    inlines = (ProfileInline,)
+
+admin.site.unregister(User)
+admin.site.register(User, UserAdmin)
+
+
+# Tournament Admin
+class GroupInline(admin.TabularInline):
+    model = Group
+    extra = 1
+    fields = ('name', 'teams')
+    filter_horizontal = ('teams',)
+
+class TournamentMatchInline(admin.TabularInline):
+    model = TournamentMatch
+    extra = 1
+    fk_name = 'group'
+    fields = ('home_team', 'away_team', 'home_score', 'away_score', 'date', 'title') # Added title
+
+# Removed @admin.register(Group)
+# class GroupAdmin(admin.ModelAdmin):
+#     list_display = ('name', 'tournament')
+#     list_filter = ('tournament',)
+#     inlines = [TournamentMatchInline]
+#     exclude = ('teams',)
+
+@admin.register(Tournament)
+class TournamentAdmin(admin.ModelAdmin):
+    list_display = ('name', ) # Removed season from list_display
+    list_filter = ('season',)
+    inlines = [GroupInline]
+
+@admin.register(TournamentMatch)
+class TournamentMatchAdmin(admin.ModelAdmin):
+    list_display = ('home_team', 'away_team', 'home_score', 'away_score', 'group', 'date', 'title') # Added title
+    list_filter = ('group__tournament__season', 'group__tournament', 'group')
+    search_fields = ('home_team__name', 'away_team__name')
+
+class TournamentPlayerStatisticInline(admin.TabularInline):
+    model = TournamentPlayerStatistic
+    extra = 1
+    fields = ('player', 'goals', 'assists', 'clean_sheets', 'yellow_cards', 'red_cards', 'present')
+
+@admin.register(TournamentPlayerStatistic)
+class TournamentPlayerStatisticAdmin(admin.ModelAdmin):
+    list_display = ('player', 'tournament_match', 'present', 'goals', 'assists', 'clean_sheets')
+    list_filter = ('player__team', 'tournament_match__group__tournament__season')
+    search_fields = ('player__name',)
+
+@admin.register(GroupStanding)
+class GroupStandingAdmin(admin.ModelAdmin):
+    list_display = ('position', 'team', 'group', 'points', 'matches_played', 'wins', 'draws', 'losses', 'goals_for', 'goals_against', 'goal_difference')
+    list_filter = ('group__tournament', 'group')
+    readonly_fields = ('goal_difference',)
+    ordering = ('group', 'position')

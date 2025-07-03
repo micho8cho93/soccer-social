@@ -1,37 +1,55 @@
 {% extends 'base.html' %}
 
 {% block content %}
-    <h1>League Standings - Season {{ season.year }}</h1>
-    <table>
-        <thead>
-            <tr>
-                <th>Position</th>
-                <th>Team</th>
-                <th>Matches Played</th>
-                <th>Wins</th>
-                <th>Draws</th>
-                <th>Losses</th>
-                <th>Goals For</th>
-                <th>Goals Against</th>
-                <th>Goal Difference</th>
-                <th>Points</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for standing in standings %}
+    <h1 class="text-3xl font-bold mb-6 text-center">League Standings - {{ league.name }} - Season {{ season.year }}</h1>
+    <nav class="mb-6 p-4 bg-white rounded-lg shadow-md border border-gray-200">
+        <ul class="flex flex-wrap justify-center space-x-4">
+            {% if active_tab != 'home' %}
+                <li><a href="{% url 'league_home' league.id season.id %}" class="text-primary-blue hover:text-primary-red font-semibold">Home</a></li>
+            {% endif %}
+            {% if active_tab != 'teams' %}
+                <li><a href="{% url 'team_list' league.id season.id %}" class="text-primary-blue hover:text-primary-red font-semibold">Teams</a></li>
+            {% endif %}
+            {% if active_tab != 'matchdays' %}
+                <li><a href="{% url 'league_matchday_list' league.id season.id %}" class="text-primary-blue hover:text-primary-red font-semibold">Matchdays</a></li>
+            {% endif %}
+            {% if active_tab != 'leaderboard' %}
+                <li><a href="{% url 'leaderboard_view' league.id season.id %}" class="text-primary-blue hover:text-primary-red font-semibold">Leaderboard</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+    <div class="bg-white p-6 rounded-lg shadow-md border border-gray-200 overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
                 <tr>
-                    <td>{{ standing.position }}</td>
-                    <td>{{ standing.team.name }}</td>
-                    <td>{{ standing.matches_played }}</td>
-                    <td>{{ standing.wins }}</td>
-                    <td>{{ standing.draws }}</td>
-                    <td>{{ standing.losses }}</td>
-                    <td>{{ standing.goals_for }}</td>
-                    <td>{{ standing.goals_against }}</td>
-                    <td>{{ standing.goal_difference }}</td>
-                    <td>{{ standing.points }}</td>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Team</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Matches Played</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Wins</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Draws</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Losses</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Goals For</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Goals Against</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Goal Difference</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Points</th>
                 </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for standing in standings %}
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ standing.position }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ standing.team.name }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ standing.matches_played }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ standing.wins }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ standing.draws }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ standing.losses }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ standing.goals_for }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ standing.goals_against }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ standing.goal_difference }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ standing.points }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 {% endblock %}
