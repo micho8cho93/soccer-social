@@ -19,11 +19,18 @@ class SeasonAdmin(admin.ModelAdmin):
     list_display = ('year', 'league', 'is_current')
     list_filter = ('league',)
 
+# New PlayerInline class
+class PlayerInline(admin.TabularInline):
+    model = Player
+    extra = 1
+    fields = ('name', 'field_position', 'role')
+
 @admin.register(Team)
 class TeamAdmin(admin.ModelAdmin):
     list_display = ('name', 'league')
     list_filter = ('league',)
     search_fields = ('name',)
+    inlines = [PlayerInline] # Add PlayerInline here
 
 @admin.register(Player)
 class PlayerAdmin(admin.ModelAdmin):

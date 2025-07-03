@@ -155,12 +155,12 @@ def update_roster_view(request, match_id):
         return HttpResponseForbidden("Roster can only be updated for future matches.")
 
     if request.method == 'POST':
-        form = RosterUpdateForm(request.POST, match=match)
+        form = RosterUpdateForm(request.POST, match=match, user=request.user)
         if form.is_valid():
-            form.save()
+            form.update_roster_data()
             return redirect('matchday_detail', matchday_id=match.matchday.id)
     else:
-        form = RosterUpdateForm(match=match) # Removed instance=True
+        form = RosterUpdateForm(match=match, user=request.user)
 
     return render(request, 'futbolapp/roster_update_form.html', {'form': form, 'match': match})
 
