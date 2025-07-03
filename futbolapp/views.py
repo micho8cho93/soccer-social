@@ -3,7 +3,8 @@ from .models import Matchday, Match, Team, Player, PlayerStatistic, LeagueStandi
 from django.db.models import Sum, F
 from django.http import JsonResponse, HttpResponseForbidden
 from django.contrib.auth.decorators import login_required
-from .forms import PlayerForm
+from .forms import PlayerForm, RosterUpdateForm
+from django.utils import timezone
 
 # Create your views here.
 
@@ -126,13 +127,42 @@ def match_roster_view(request, match_id):
     View for displaying the roster (player presence) for a specific match.
     """
     match = get_object_or_404(Match, pk=match_id)
-    home_team_players = PlayerStatistic.objects.filter(match=match, player__team=match.home_team).order_by('player__name')
-    away_team_players = PlayerStatistic.objects.filter(match=match, player__team=match.away_team).order_by('player__name')
+    home_team_players = PlayerStatistic.objects.filter(match=match, player__team=match.home_team, present=True).order_by('player__name')
+    away_team_players = PlayerStatistic.objects.filter(match=match, player__team=match.away_team, present=True).order_by('player__name')
     return render(request, 'futbolapp/match_roster.html', {
         'match': match,
         'home_team_players': home_team_players,
         'away_team_players': away_team_players
     })
+
+@login_required
+def update_roster_view(request, match_id):
+    """
+    Allows authorized users to update the roster (player presence) for a future match.
+    """
+    match = get_object_or_404(Match, pk=match_id)
+
+    # Authorization: Check if user is superuser or associated with one of the teams
+    user_team = None
+    if hasattr(request.user, 'profile') and request.user.profile.team:
+        user_team = request.user.profile.team
+
+    if not request.user.is_superuser and user_team not in [match.home_team, match.away_team]:
+        return HttpResponseForbidden("You are not authorized to update the roster for this match.")
+
+    # Date Check: Only allow updates for future matches
+    if match.date < timezone.now():
+        return HttpResponseForbidden("Roster can only be updated for future matches.")
+
+    if request.method == 'POST':
+        form = RosterUpdateForm(request.POST, match=match)
+        if form.is_valid():
+            form.save()
+            return redirect('matchday_detail', matchday_id=match.matchday.id)
+    else:
+        form = RosterUpdateForm(match=match) # Removed instance=True
+
+    return render(request, 'futbolapp/roster_update_form.html', {'form': form, 'match': match})
 
 @login_required
 def team_detail(request, team_id):
@@ -141,6 +171,7 @@ def team_detail(request, team_id):
     """
     team = get_object_or_404(Team, pk=team_id)
     league = team.league # Get the league from the team
+    season = Season.objects.filter(league=league, is_current=True).first() # Get the current season for the league
     players = Player.objects.filter(team=team)
     for player in players:
         stats = PlayerStatistic.objects.filter(player=player).aggregate(
@@ -159,7 +190,7 @@ def team_detail(request, team_id):
     elif hasattr(request.user, 'profile') and request.user.profile.team == team:
         user_can_edit = True
 
-    return render(request, 'futbolapp/team_detail.html', {'team': team, 'players': players, 'league': league, 'active_tab': 'teams', 'user_can_edit': user_can_edit})
+    return render(request, 'futbolapp/team_detail.html', {'team': team, 'players': players, 'league': league, 'active_tab': 'teams', 'user_can_edit': user_can_edit, 'season': season})
 
 @login_required
 def league_standings_view(request, league_id, season_id):

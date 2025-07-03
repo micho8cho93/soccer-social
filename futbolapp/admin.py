@@ -64,21 +64,81 @@ class MatchdayAdmin(admin.ModelAdmin):
     list_filter = ('season',)
     inlines = [MatchInline]
 
+# Custom form for Match Admin to handle rosters
+class MatchAdminForm(forms.ModelForm):
+    class Meta:
+        model = Match
+        fields = '__all__'
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            match = self.instance
+            home_players = Player.objects.filter(team=match.home_team)
+            away_players = Player.objects.filter(team=match.away_team)
+
+            # Add dynamic fields for home team players
+            for player in home_players:
+                field_name = f'home_player_{player.id}_present'
+                initial_value = PlayerStatistic.objects.filter(player=player, match=match, present=True).exists()
+                self.fields[field_name] = forms.BooleanField(
+                    label=f'{player.name}',
+                    required=False,
+                    initial=initial_value
+                )
+            
+            # Add dynamic fields for away team players
+            for player in away_players:
+                field_name = f'away_player_{player.id}_present'
+                initial_value = PlayerStatistic.objects.filter(player=player, match=match, present=True).exists()
+                self.fields[field_name] = forms.BooleanField(
+                    label=f'{player.name}',
+                    required=False,
+                    initial=initial_value
+                )
+
 class PlayerStatisticInline(admin.TabularInline):
     model = PlayerStatistic
     extra = 1
-    fields = ('player', 'present', 'goals', 'assists', 'clean_sheets', 'yellow_cards', 'red_cards')
+    fields = ('player', 'goals', 'assists', 'clean_sheets', 'yellow_cards', 'red_cards') # Removed 'present' here
+    readonly_fields = ('player',)
 
 @admin.register(Match)
 class MatchAdmin(admin.ModelAdmin):
+    form = MatchAdminForm # Use the custom form
     list_display = ('home_team', 'away_team', 'home_score', 'away_score', 'matchday', 'date')
-    list_filter = ('matchday', 'matchday__season') # Added matchday filter
+    list_filter = ('matchday', 'matchday__season')
     search_fields = ('home_team__name', 'away_team__name')
-    inlines = [PlayerStatisticInline]
+    change_form_template = "admin/futbolapp/match/change_form.html" # Custom template
+    inlines = [PlayerStatisticInline] # Re-added PlayerStatisticInline
 
-    def save_related(self, request, form, formsets, change):
-        super().save_related(request, form, formsets, change)
-        instance = form.instance
+    fieldsets = (
+        (None, {
+            'fields': ('matchday', 'home_team', 'away_team', 'home_score', 'away_score', 'date'),
+        }),
+    )
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+
+        # Process dynamic roster fields
+        home_players = Player.objects.filter(team=obj.home_team)
+        away_players = Player.objects.filter(team=obj.away_team)
+
+        for player in home_players:
+            field_name = f'home_player_{player.id}_present'
+            is_present = form.cleaned_data.get(field_name, False)
+            player_stat, created = PlayerStatistic.objects.get_or_create(player=player, match=obj)
+            player_stat.present = is_present
+            player_stat.save()
+        
+        for player in away_players:
+            field_name = f'away_player_{player.id}_present'
+            is_present = form.cleaned_data.get(field_name, False)
+            player_stat, created = PlayerStatistic.objects.get_or_create(player=player, match=obj)
+            player_stat.present = is_present
+            player_stat.save()
+
 
 @admin.register(PlayerStatistic)
 class PlayerStatisticAdmin(admin.ModelAdmin):
