@@ -2,7 +2,7 @@
 
 {% block content %}
     <h1 class="text-3xl font-bold mb-2 text-center">Match Day {{ matchday.number }} - {{ matchday.date }}</h1>
-    <div class="flex justify-between items-center mb-4">
+    <div class="flex justify-center gap-4 items-center mb-4">
         <div>
             {% if prev_matchday %}
                 <a href="{% url 'matchday_detail' prev_matchday.id %}" class="text-2xl font-bold">&lt;</a>
