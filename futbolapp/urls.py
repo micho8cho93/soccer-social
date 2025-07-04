@@ -1,5 +1,16 @@
-from django.urls import path
+from django.urls import path, include
 from . import views
+
+public_urlpatterns = [
+    path('', views.public_league_selection, name='public_league_selection'),
+    path('get_seasons/<int:league_id>/', views.public_get_seasons_for_league, name='public_get_seasons_for_league'),
+    path('league/<int:league_id>/<int:season_id>/', views.public_league_home, name='public_league_home'),
+    path('league/<int:league_id>/<int:season_id>/standings/', views.public_league_standings_view, name='public_league_standings_view'),
+    path('league/<int:league_id>/<int:season_id>/leaderboard/', views.public_leaderboard_view, name='public_leaderboard_view'),
+    path('tournament/<int:tournament_id>/<int:season_id>/', views.public_tournament_home, name='public_tournament_home'),
+    path('tournament/<int:tournament_id>/<int:season_id>/standings/', views.public_tournament_standings, name='public_tournament_standings'),
+    path('tournament/<int:tournament_id>/<int:season_id>/leaderboard/', views.public_tournament_leaderboard, name='public_tournament_leaderboard'),
+]
 
 urlpatterns = [
     path('', views.league_selection, name='league_selection'),

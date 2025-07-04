@@ -3,12 +3,15 @@
 {% block content %}
     <h1 class="text-2xl font-bold mb-4 text-center">Select a League or Tournament</h1>
     <form method="post" id="league_season_form" class="flex flex-col items-center space-y-4">
+        {% if public_viewer %}
+            <input type="hidden" id="public_viewer_flag" value="true">
+        {% endif %}
         {% csrf_token %}
         <div class="w-full max-w-xs">
             <label for="type_select" class="block text-gray-700 text-sm font-bold mb-2">Type:</label>
             <select name="type" id="type_select" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
                 <option value="">-- Select Type --</option>
-                <option value="league">League</option>
+                <option value="league" selected>League</option>
                 <option value="tournament">Tournament</option>
             </select>
         </div>
@@ -43,8 +46,14 @@
         <button type="submit" id="submit_button" disabled class="bg-primary-blue hover:bg-primary-red text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline border border-primary-blue">
             Go
         </button>
+        {% if public_viewer %}
+        <div class="mt-4 text-center">
+            <a href="{% url 'login' %}" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded inline-flex items-center">
+                Login
+            </a>
+        </div>
+        {% endif %}
     </form>
-
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const typeSelect = document.getElementById('type_select');
@@ -78,7 +87,9 @@
                 submitButton.disabled = true;
 
                 if (leagueId) {
-                    fetch(`/futbol/get_seasons/${leagueId}/`)
+                    const isPublicViewer = document.getElementById('public_viewer_flag');
+                    const baseUrl = isPublicViewer ? '/public' : '/futbol';
+                    fetch(`${baseUrl}/get_seasons/${leagueId}/`)
                         .then(response => response.json())
                         .then(data => {
                             seasonSelect.innerHTML = '<option value="">-- Select a season --</option>';
@@ -131,23 +142,33 @@
             form.addEventListener('submit', function(event) {
                 event.preventDefault();
                 const selectedType = typeSelect.value;
+                const isPublicViewer = document.getElementById('public_viewer_flag');
+                const baseUrl = isPublicViewer ? '/public' : '/futbol';
+
                 if (selectedType === 'league') {
                     const leagueId = leagueSelect.value;
                     const seasonId = seasonSelect.value;
                     if (leagueId && seasonId) {
-                        window.location.href = `/futbol/league/${leagueId}/${seasonId}/`;
+                        window.location.href = `${baseUrl}/league/${leagueId}/${seasonId}/`;
                     }
                 } else if (selectedType === 'tournament') {
                     const tournamentId = tournamentSelect.value;
                     const seasonId = seasonSelect.value; // Now seasonSelect has the correct seasonId for tournaments
                     if (tournamentId && seasonId) {
-                        window.location.href = `/futbol/tournament/${tournamentId}/${seasonId}/`;
+                        window.location.href = `${baseUrl}/tournament/${tournamentId}/${seasonId}/`;
                     }
                 }
             });
 
             // Initial visibility update
             updateVisibility();
+            // Trigger change event on typeSelect to ensure correct dropdown is shown
+            typeSelect.dispatchEvent(new Event('change'));
+
+            // If league is initially selected, trigger change on leagueSelect to load seasons
+            if (typeSelect.value === 'league') {
+                leagueSelect.dispatchEvent(new Event('change'));
+            }
         });
     </script>
 {% endblock %}
