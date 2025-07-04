@@ -389,20 +389,91 @@ def tournament_team_detail(request, tournament_id, season_id, team_id):
 
     return render(request, 'futbolapp/tournament_team_detail.html', {'team': team, 'players': players, 'tournament': tournament, 'season': season, 'active_tab': 'teams', 'user_can_edit': user_can_edit})
 
+from collections import defaultdict
+from django.db.models.functions import TruncDate
+from django.db.models import Q
+
 @login_required
 def tournament_matchdays(request, tournament_id, season_id):
     tournament = get_object_or_404(Tournament, pk=tournament_id)
     season = get_object_or_404(Season, pk=season_id)
-    matchdays = Matchday.objects.filter(season=season).order_by('number')
-    return render(request, 'futbolapp/tournament_matchdays.html', {'tournament': tournament, 'season': season, 'matchdays': matchdays, 'active_tab': 'matchdays'})
+    
+    # Get unique dates for tournament matches
+    tournament_teams_filter = (
+        Q(tournament=tournament) |
+        Q(group__tournament=tournament)
+    )
+
+    # Filter TournamentMatch objects where either home_team or away_team matches the tournament
+    teams_in_tournament = Team.objects.filter(
+        Q(tournament=tournament) | Q(group__tournament=tournament)
+    ).distinct()
+
+    tournament_matches_filter = (
+        Q(home_team__in=teams_in_tournament) |
+        Q(away_team__in=teams_in_tournament)
+    )
+
+    unique_dates = TournamentMatch.objects.filter(
+        tournament_matches_filter
+    ).annotate(match_date=TruncDate('date')).values_list('match_date', flat=True).distinct().order_by('match_date')
+
+    return render(request, 'futbolapp/tournament_matchdays.html', {
+        'tournament': tournament, 
+        'season': season, 
+        'unique_dates': unique_dates, 
+        'active_tab': 'matchdays'
+    })
+
+from datetime import datetime
+from django.db.models.functions import TruncDate
 
 @login_required
-def tournament_matchday_detail(request, tournament_id, season_id, matchday_id):
+def tournament_group_detail(request, tournament_id, season_id, group_id):
     tournament = get_object_or_404(Tournament, pk=tournament_id)
     season = get_object_or_404(Season, pk=season_id)
-    matchday = get_object_or_404(Matchday, pk=matchday_id)
-    matches = TournamentMatch.objects.filter(matchday=matchday)
-    return render(request, 'futbolapp/tournament_matchday_detail.html', {'tournament': tournament, 'season': season, 'matchday': matchday, 'matches': matches})
+    group = get_object_or_404(Group, pk=group_id)
+    matches = TournamentMatch.objects.filter(group=group).order_by('date')
+    return render(request, 'futbolapp/tournament_matchday_detail.html', {'tournament': tournament, 'season': season, 'group': group, 'matches': matches})
+
+@login_required
+def tournament_matchday_detail_by_date(request, tournament_id, season_id, year, month, day):
+    tournament = get_object_or_404(Tournament, pk=tournament_id)
+    season = get_object_or_404(Season, pk=season_id)
+    
+    selected_date = datetime(year, month, day).date()
+    teams_in_tournament = Team.objects.filter(
+        Q(tournament=tournament) | Q(group__tournament=tournament)
+    ).distinct()
+
+    matches = TournamentMatch.objects.filter(
+        Q(home_team__in=teams_in_tournament) | Q(away_team__in=teams_in_tournament),
+        date__date=selected_date
+    ).order_by('date')
+
+    # Get all unique dates for navigation
+    all_unique_dates = TournamentMatch.objects.filter(
+        Q(home_team__in=teams_in_tournament) | Q(away_team__in=teams_in_tournament)
+    ).annotate(match_date=TruncDate('date')).values_list('match_date', flat=True).distinct().order_by('match_date')
+
+    prev_date = None
+    next_date = None
+    for i, date in enumerate(all_unique_dates):
+        if date == selected_date:
+            if i > 0:
+                prev_date = all_unique_dates[i-1]
+            if i < len(all_unique_dates) - 1:
+                next_date = all_unique_dates[i+1]
+            break
+
+    return render(request, 'futbolapp/tournament_matchday_detail_by_date.html', {
+        'tournament': tournament,
+        'season': season,
+        'selected_date': selected_date,
+        'matches': matches,
+        'prev_date': prev_date,
+        'next_date': next_date,
+    })
 
 @login_required
 def tournament_standings(request, tournament_id, season_id):
@@ -488,4 +559,4 @@ def tournament_leaderboard(request, tournament_id, season_id):
         'yellow_cards_leader': yellow_cards_leader,
         'red_cards_leader': red_cards_leader,
     }
-    return render(request, 'futbolapp/tournament_leaderboard.html', context)}
+    return render(request, 'futbolapp/tournament_leaderboard.html', context)

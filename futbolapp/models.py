@@ -240,22 +240,31 @@ class Group(models.Model):
         return f"{self.tournament.name} - Group {self.name}"
 
 class TournamentMatch(models.Model):
-    group = models.ForeignKey(Group, on_delete=models.CASCADE)
-    matchday = models.ForeignKey(Matchday, on_delete=models.CASCADE, null=True, blank=True)
+    MATCH_TYPE_CHOICES = [
+        ('group_stage', 'Group Stage'),
+        ('quarter_final', 'Quarter-Final'),
+        ('semi_final', 'Semi-Final'),
+        ('final', 'Final'),
+        ('third_place', '3rd Place Match'),
+    ]
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, null=True, blank=True)
     home_team = models.ForeignKey(Team, related_name='tournament_home_matches', on_delete=models.CASCADE)
     away_team = models.ForeignKey(Team, related_name='tournament_away_matches', on_delete=models.CASCADE)
     home_score = models.PositiveIntegerField(null=True, blank=True)
     away_score = models.PositiveIntegerField(null=True, blank=True)
     date = models.DateTimeField()
-    title = models.CharField(max_length=100, blank=True, null=True) # New field for title
+    title = models.CharField(max_length=100, blank=True, null=True)
+    match_type = models.CharField(max_length=20, choices=MATCH_TYPE_CHOICES, default='group_stage')
 
     class Meta:
-        unique_together = ('group', 'home_team', 'away_team')
         ordering = ['date']
         verbose_name_plural = "Tournament Matches"
 
     def __str__(self):
-        return f"{self.home_team.name} vs {self.away_team.name} in {self.group.name}"
+        if self.group:
+            return f"{self.home_team.name} vs {self.away_team.name} in {self.group.name}"
+        else:
+            return f"{self.home_team.name} vs {self.away_team.name} ({self.get_match_type_display()})"
 
     def save(self, *args, **kwargs):
         old_match = None
@@ -269,15 +278,16 @@ class TournamentMatch(models.Model):
             for player in team.player_set.all():
                 TournamentPlayerStatistic.objects.get_or_create(player=player, tournament_match=self)
 
-        teams_to_update = {self.home_team, self.away_team}
-        if old_match:
-            teams_to_update.add(old_match.home_team)
-            teams_to_update.add(old_match.away_team)
-        
-        for team in teams_to_update:
-            GroupStanding.recalculate_for_team(team, self.group)
+        if self.group: # Only update group standings if it's a group match
+            teams_to_update = {self.home_team, self.away_team}
+            if old_match and old_match.group: # Also consider old group if it existed
+                teams_to_update.add(old_match.home_team)
+                teams_to_update.add(old_match.away_team)
+            
+            for team in teams_to_update:
+                GroupStanding.recalculate_for_team(team, self.group)
 
-        GroupStanding.update_positions_for_group(self.group)
+            GroupStanding.update_positions_for_group(self.group)
 
     def delete(self, *args, **kwargs):
         group = self.group
@@ -286,9 +296,10 @@ class TournamentMatch(models.Model):
         
         super().delete(*args, **kwargs)
 
-        GroupStanding.recalculate_for_team(home_team, group)
-        GroupStanding.recalculate_for_team(away_team, group)
-        GroupStanding.update_positions_for_group(group)
+        if group: # Only recalculate group standings if it was a group match
+            GroupStanding.recalculate_for_team(home_team, group)
+            GroupStanding.recalculate_for_team(away_team, group)
+            GroupStanding.update_positions_for_group(group)
 
 class TournamentPlayerStatistic(models.Model):
     player = models.ForeignKey(Player, on_delete=models.CASCADE)

@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 
 {% block content %}
-    <h1 class="text-3xl font-bold mb-6 text-center">Match Days for {{ tournament.name }} - Season {{ season.year }}</h1>
+    <h1 class="text-3xl font-bold mb-6 text-center">Tournament Match Days for {{ tournament.name }} - Season {{ season.year }}</h1>
     <nav class="mb-6 p-4 bg-white rounded-lg shadow-md border border-gray-200">
         <ul class="flex flex-wrap justify-center space-x-4">
             {% if active_tab != 'home' %}
@@ -20,12 +20,12 @@
     </nav>
     <div class="bg-white p-6 rounded-lg shadow-md border border-gray-200">
         <ul class="space-y-4">
-            {% for matchday in matchdays %}
+            {% for date in unique_dates %}
                 <li class="p-4 bg-gray-50 rounded-md border border-gray-200">
-                    <a href="{% url 'tournament_matchday_detail' tournament.id season.id matchday.id %}" class="text-lg font-medium text-primary-blue hover:text-primary-red">Match Day {{ matchday.number }} - {{ matchday.date }}</a>
+                    <a href="{% url 'tournament_matchday_detail_by_date' tournament.id season.id date.year date.month date.day %}" class="text-lg font-medium text-primary-blue hover:text-primary-red">{{ date|date:"l, F j, Y" }}</a>
                 </li>
             {% empty %}
-                <li class="text-gray-700">No matchdays found for this tournament.</li>
+                <li class="text-gray-700">No tournament match days found for this season.</li>
             {% endfor %}
         </ul>
     </div>

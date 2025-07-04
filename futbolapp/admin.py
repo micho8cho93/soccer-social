@@ -102,14 +102,14 @@ class MatchInline(admin.TabularInline):
 class TournamentMatchdayInline(admin.TabularInline):
     model = TournamentMatch
     extra = 1
-    fk_name = 'matchday' # This will be the foreign key to Matchday
+    fk_name = 'group'
     fields = ('home_team', 'away_team', 'home_score', 'away_score', 'date', 'title')
 
 @admin.register(Matchday)
 class MatchdayAdmin(admin.ModelAdmin):
     list_display = ('number', 'season', 'date', 'title') # Added title
     list_filter = ('season',)
-    inlines = [MatchInline, TournamentMatchdayInline] # Removed TournamentMatchdayInline
+    inlines = [MatchInline]
     fieldsets = (
         (None, {
             'fields': ('season', 'number', 'date', 'title'), # Added title
@@ -245,11 +245,35 @@ class TournamentAdmin(admin.ModelAdmin):
     list_filter = ('season',)
     inlines = [GroupInline]
 
+class TournamentMatchAdminForm(forms.ModelForm):
+    class Meta:
+        model = TournamentMatch
+        fields = '__all__'
+
+    def clean(self):
+        cleaned_data = super().clean()
+        match_type = cleaned_data.get('match_type')
+        group = cleaned_data.get('group')
+
+        if match_type == 'group_stage':
+            if not group:
+                self.add_error('group', "Group must be provided for group stage matches.")
+        else: # Knockout matches
+            if group:
+                self.add_error('group', "Group must be empty for knockout matches.")
+        return cleaned_data
+
 @admin.register(TournamentMatch)
 class TournamentMatchAdmin(admin.ModelAdmin):
-    list_display = ('home_team', 'away_team', 'home_score', 'away_score', 'group', 'date', 'title') # Added title
-    list_filter = ('group__tournament__season', 'group__tournament', 'group')
+    form = TournamentMatchAdminForm
+    list_display = ('home_team', 'away_team', 'home_score', 'away_score', 'group', 'match_type', 'date', 'title')
+    list_filter = ('group__tournament', 'group', 'match_type')
     search_fields = ('home_team__name', 'away_team__name')
+    fieldsets = (
+        (None, {
+            'fields': ('group', 'match_type', 'home_team', 'away_team', 'home_score', 'away_score', 'date', 'title'),
+        }),
+    )
 
 class TournamentPlayerStatisticInline(admin.TabularInline):
     model = TournamentPlayerStatistic
