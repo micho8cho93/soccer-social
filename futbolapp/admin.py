@@ -109,7 +109,7 @@ class TournamentMatchdayInline(admin.TabularInline):
 class MatchdayAdmin(admin.ModelAdmin):
     list_display = ('number', 'season', 'date', 'title') # Added title
     list_filter = ('season',)
-    inlines = [MatchInline] # Removed TournamentMatchdayInline
+    inlines = [MatchInline, TournamentMatchdayInline] # Removed TournamentMatchdayInline
     fieldsets = (
         (None, {
             'fields': ('season', 'number', 'date', 'title'), # Added title

@@ -241,6 +241,7 @@ class Group(models.Model):
 
 class TournamentMatch(models.Model):
     group = models.ForeignKey(Group, on_delete=models.CASCADE)
+    matchday = models.ForeignKey(Matchday, on_delete=models.CASCADE, null=True, blank=True)
     home_team = models.ForeignKey(Team, related_name='tournament_home_matches', on_delete=models.CASCADE)
     away_team = models.ForeignKey(Team, related_name='tournament_away_matches', on_delete=models.CASCADE)
     home_score = models.PositiveIntegerField(null=True, blank=True)
