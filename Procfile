@@ -1,1 +1,1 @@
-release: python manage.py createsuperuser
+web: gunicorn config.wsgi --log-file -
