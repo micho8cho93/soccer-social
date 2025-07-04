@@ -115,7 +115,17 @@ def matchday_detail(request, matchday_id):
     """
     matchday = get_object_or_404(Matchday, pk=matchday_id)
     matches = Match.objects.filter(matchday=matchday)
-    return render(request, 'futbolapp/matchday_detail.html', {'matchday': matchday, 'matches': matches})
+
+    # Get previous and next matchdays
+    prev_matchday = Matchday.objects.filter(season=matchday.season, number__lt=matchday.number).order_by('-number').first()
+    next_matchday = Matchday.objects.filter(season=matchday.season, number__gt=matchday.number).order_by('number').first()
+
+    return render(request, 'futbolapp/matchday_detail.html', {
+        'matchday': matchday, 
+        'matches': matches,
+        'prev_matchday': prev_matchday,
+        'next_matchday': next_matchday
+    })
 
 @login_required
 def match_statistics(request, match_id):
