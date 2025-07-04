@@ -32,7 +32,7 @@ DEBUG = False
 
 ALLOWED_HOSTS = ['soccersocial.up.railway.app', 'web-production-97d6f.up.railway.app', '.railway.app', 'localhost', '127.0.0.1']
 
-CSRF_TRUSTED_ORIGINS = ['https://soccersocial.up.railway.app']
+CSRF_TRUSTED_ORIGINS = ['https://soccersocial.up.railway.app', 'https://web-production-97d6f.up.railway.app']
 
 
 # Application definition
