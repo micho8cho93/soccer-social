@@ -36,9 +36,16 @@
             <button type="submit" class="bg-primary-blue hover:bg-primary-red text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
                 {% if player %}Update Player{% else %}Add Player{% endif %}
             </button>
-            <a href="{% url 'team_detail' team.id %}" class="ml-4 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded inline-flex items-center">
-                Cancel
-            </a>
+            
+            {% if tournament_id and season_id %}
+                <a href="{% url 'tournament_team_detail' tournament_id season_id team.id %}" class="ml-4 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded inline-flex items-center">
+                    Cancel
+                </a>
+            {% else %}
+                <a href="{% url 'team_detail' team.id %}" class="ml-4 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded inline-flex items-center">
+                    Cancel
+                </a>
+            {% endif %}
         </form>
     </div>
 {% endblock %}

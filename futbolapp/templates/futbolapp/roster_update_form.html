@@ -13,7 +13,11 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {% for checkbox in form.home_team_players %}
                         <div class="flex items-center">
-                            {{ checkbox.tag }}
+                            {% if user.is_superuser or user.profile.team == match.home_team %}
+                                {{ checkbox.tag }}
+                            {% else %}
+                                <input type="checkbox" name="{{ checkbox.name }}" value="{{ checkbox.value }}" {% if checkbox.data %}checked{% endif %} disabled>
+                            {% endif %}
                             <label for="{{ checkbox.id_for_label }}" class="ml-2 text-gray-700">{{ checkbox.choice_label }}</label>
                         </div>
                     {% endfor %}
@@ -25,7 +29,11 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {% for checkbox in form.away_team_players %}
                         <div class="flex items-center">
-                            {{ checkbox.tag }}
+                            {% if user.is_superuser or user.profile.team == match.away_team %}
+                                {{ checkbox.tag }}
+                            {% else %}
+                                <input type="checkbox" name="{{ checkbox.name }}" value="{{ checkbox.value }}" {% if checkbox.data %}checked{% endif %} disabled>
+                            {% endif %}
                             <label for="{{ checkbox.id_for_label }}" class="ml-2 text-gray-700">{{ checkbox.choice_label }}</label>
                         </div>
                     {% endfor %}
