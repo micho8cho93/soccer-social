@@ -30,7 +30,7 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-ALLOWED_HOSTS = ['soccersocial.up.railway.app', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['soccersocial.up.railway.app', 'web-production-97d6f.up.railway.app', '.railway.app', 'localhost', '127.0.0.1']
 
 CSRF_TRUSTED_ORIGINS = ['https://soccersocial.up.railway.app']
 
