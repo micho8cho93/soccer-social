@@ -116,10 +116,7 @@ class MatchdayAdmin(admin.ModelAdmin):
         }),
     )
 
-    def formfield_for_foreignkey(self, db_field, request, **kwargs):
-        if db_field.name == "season":
-            kwargs["queryset"] = Season.objects.filter(league__isnull=False) # Only show league seasons
-        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+    
 
 # Custom form for Match Admin to handle rosters
 class MatchAdminForm(forms.ModelForm):
