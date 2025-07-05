@@ -8,6 +8,16 @@
             {% if active_tab != 'home' %}
                 <li><a href="{% if public_viewer %}{% url 'public_tournament_home' tournament.id season.id %}{% else %}{% url 'tournament_home' tournament.id season.id %}{% endif %}" class="text-primary-blue hover:text-primary-red font-semibold">Home</a></li>
             {% endif %}
+            {% if active_tab != 'teams' %}
+                {% if not public_viewer %}
+                <li><a href="{% url 'tournament_teams' tournament.id season.id %}" class="text-primary-blue hover:text-primary-red font-semibold">Teams</a></li>
+                {% endif %}
+            {% endif %}
+            {% if active_tab != 'matchdays' %}
+                {% if not public_viewer %}
+                <li><a href="{% url 'tournament_matchdays' tournament.id season.id %}" class="text-primary-blue hover:text-primary-red font-semibold">Matchdays</a></li>
+                {% endif %}
+            {% endif %}
             {% if active_tab != 'standings' %}
                 <li><a href="{% if public_viewer %}{% url 'public_tournament_standings' tournament.id season.id %}{% else %}{% url 'tournament_standings' tournament.id season.id %}{% endif %}" class="text-primary-blue hover:text-primary-red font-semibold">Standings</a></li>
             {% endif %}
