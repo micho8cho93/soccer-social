@@ -466,35 +466,22 @@ def tournament_leaderboard(request, tournament_id, season_id):
     )
 
     # Goals Leader
-    goals_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
-        .annotate(total_goals=Sum('goals')) \
-        .order_by('-total_goals')[:5]
+    goals_leader = player_stats_in_tournament.values('player__name', 'player__team__name')         .annotate(total_goals=Sum('goals'))         .order_by('-total_goals')[:5]
 
     # Assists Leader
-    assists_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
-        .annotate(total_assists=Sum('assists')) \
-        .order_by('-total_assists')[:5]
+    assists_leader = player_stats_in_tournament.values('player__name', 'player__team__name')         .annotate(total_assists=Sum('assists'))         .order_by('-total_assists')[:5]
 
     # Goal Contributions Leader (Goals + Assists)
-    goal_contributions_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
-        .annotate(total_contributions=Sum(F('goals') + F('assists'))) \
-        .order_by('-total_contributions')[:5]
+    goal_contributions_leader = player_stats_in_tournament.values('player__name', 'player__team__name')         .annotate(total_contributions=Sum(F('goals') + F('assists')))         .order_by('-total_contributions')[:5]
 
     # Clean Sheets Leader (only goalkeepers)
-    clean_sheets_leader = player_stats_in_tournament.filter(player__field_position='goalkeeper') \
-        .values('player__name', 'player__team__name') \
-        .annotate(total_clean_sheets=Sum('clean_sheets')) \
-        .order_by('-total_clean_sheets')[:5]
+    clean_sheets_leader = player_stats_in_tournament.filter(player__field_position='goalkeeper')         .values('player__name', 'player__team__name')         .annotate(total_clean_sheets=Sum('clean_sheets'))         .order_by('-total_clean_sheets')[:5]
 
     # Yellow Cards Leader
-    yellow_cards_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
-        .annotate(total_yellow_cards=Sum('yellow_cards')) \
-        .order_by('-total_yellow_cards')[:5]
+    yellow_cards_leader = player_stats_in_tournament.values('player__name', 'player__team__name')         .annotate(total_yellow_cards=Sum('yellow_cards'))         .order_by('-total_yellow_cards')[:5]
 
     # Red Cards Leader
-    red_cards_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
-        .annotate(total_red_cards=Sum('red_cards')) \
-        .order_by('-total_red_cards')[:5]
+    red_cards_leader = player_stats_in_tournament.values('player__name', 'player__team__name')         .annotate(total_red_cards=Sum('red_cards'))         .order_by('-total_red_cards')[:5]
 
     context = {
         'tournament': tournament,
@@ -507,7 +494,7 @@ def tournament_leaderboard(request, tournament_id, season_id):
         'yellow_cards_leader': yellow_cards_leader,
         'red_cards_leader': red_cards_leader,
     }
-    return render(request, 'futbolapp/leaderboard.html', context)
+    return render(request, 'futbolapp/tournament_leaderboard.html', context)
 
 
 def public_get_seasons_for_league(request, league_id):
