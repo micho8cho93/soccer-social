@@ -19,10 +19,12 @@
         </ul>
     </nav>
     <div class="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-        <ul class="space-y-4">
+        <ul class="space-y-2">
             {% for date in unique_dates %}
-                <li class="p-4 bg-gray-50 rounded-md border border-gray-200">
-                    <a href="{% url 'tournament_matchday_detail_by_date' tournament.id season.id date.year date.month date.day %}" class="text-lg font-medium text-primary-blue hover:text-primary-red">{{ date|date:"l, F j, Y" }}</a>
+                <li>
+                    <a href="{% url 'tournament_matchday_detail_by_date' tournament.id season.id date.year date.month date.day %}" class="block p-3 bg-gray-50 hover:bg-gray-100 rounded-md border border-gray-200 text-primary-blue font-medium">
+                        {{ date|date:"l, F j, Y" }}
+                    </a>
                 </li>
             {% empty %}
                 <li class="text-gray-700">No tournament match days found for this season.</li>

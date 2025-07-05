@@ -19,7 +19,6 @@
         </ul>
     </nav>
     <div class="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-        <h2 class="text-2xl font-semibold mb-4">Participating Teams</h2>
         <ul class="space-y-2">
             {% for team in teams %}
                 <li><a href="{% url 'tournament_team_detail' tournament.id season.id team.id %}" class="block p-3 bg-gray-50 hover:bg-gray-100 rounded-md border border-gray-200 text-primary-blue font-medium">{{ team.name }}</a></li>
