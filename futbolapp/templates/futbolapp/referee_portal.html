@@ -19,7 +19,7 @@
                 <td class="py-2 px-4 border-b">{{ match.date|date:"F d, Y" }}</td>
                 <td class="py-2 px-4 border-b">{{ match.home_team }}</td>
                 <td class="py-2 px-4 border-b">{{ match.away_team }}</td>
-                <td class="py-2 px-4 border-b"><a href="{% url 'referee_match_update' match_id=match.id %}">Edit</a></td>
+                <td class="py-2 px-4 border-b text-red-500"><a href="{% url 'referee_match_update' match_id=match.id %}">Edit</a></td>
             </tr>
             {% endfor %}
         </tbody>

@@ -1,7 +1,9 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib import messages # Added this line
+from django.contrib import messages
+from django.core.mail import send_mail
+from django.conf import settings
+from .forms import ContactForm
 from .models import Matchday, Match, Team, Player, PlayerStatistic, LeagueStanding, Season, League, Tournament, Group, TournamentMatch, TournamentPlayerStatistic, GroupStanding, Referee
-
 from django.db.models import Sum, F
 from django.http import JsonResponse, HttpResponseForbidden
 from django.contrib.auth.decorators import login_required
@@ -695,7 +697,44 @@ def public_tournament_leaderboard(request, tournament_id, season_id):
     return render(request, 'futbolapp/tournament_leaderboard.html', context)
 
 def landing_page(request):
-    return render(request, 'futbolapp/landing_page.html')
+    """Main landing page with the contact form"""
+    if request.method == "POST":
+        form = ContactForm(request.POST)
+        if form.is_valid():
+            name = form.cleaned_data['name']
+            email = form.cleaned_data['email']
+            phone = form.cleaned_data['phone']
+            message = form.cleaned_data['message']
+
+            subject = f"New Contact Form Submission from {name}"
+            body = f"""
+            Name: {name}
+            Email: {email}
+            Phone: {phone}
+
+            Message:
+            {message}
+            """
+
+            # Send the email
+            send_mail(
+                subject,
+                body,
+                settings.DEFAULT_FROM_EMAIL,   # from
+                ["your_email@gmail.com"],      # to
+                fail_silently=False,
+            )
+
+            return redirect("contact_success")
+
+    else:
+        form = ContactForm()
+
+    return render(request, "futbolapp/landing_page.html", {"form": form})
+
+
+def contact_success(request):
+    return render(request, 'futbolapp/contact_success.html')
 
 def referee_match_update(request, match_id):
     match = get_object_or_404(Match, pk=match_id)

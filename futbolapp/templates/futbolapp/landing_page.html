@@ -60,18 +60,36 @@
 
   <!-- Contact Form -->
   <section id="contact" class="px-8 py-16">
-    <h2 class="text-3xl font-bold text-center mb-8">Contact Us</h2>
-    <form method="POST" action="{% url 'public_league_selection' %}" 
-          class="max-w-2xl mx-auto bg-white p-8 rounded-lg shadow space-y-4">
-      {% csrf_token %}
-      <input type="text" name="name" placeholder="Your Name" class="w-full border p-3 rounded">
-      <input type="email" name="email" placeholder="Your Email" class="w-full border p-3 rounded">
-      <textarea name="message" placeholder="Your Message" rows="5" class="w-full border p-3 rounded"></textarea>
-      <button type="submit" class="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700">
-        Send Message
-      </button>
-    </form>
-  </section>
+  <h2 class="text-3xl font-bold text-center mb-8">Contact Us</h2>
+  <form method="POST" action="" 
+        class="max-w-2xl mx-auto bg-white text-black p-8 rounded-lg shadow space-y-4">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+    <div>
+      <label for="{{ form.name.id_for_label }}" class="block text-gray-700 text-sm font-bold mb-2">Name:</label>
+      {{ form.name.errors }}
+      {{ form.name }}
+    </div>
+    <div>
+      <label for="{{ form.email.id_for_label }}" class="block text-gray-700 text-sm font-bold mb-2">Email:</label>
+      {{ form.email.errors }}
+      {{ form.email }}
+    </div>
+    <div>
+      <label for="{{ form.phone.id_for_label }}" class="block text-gray-700 text-sm font-bold mb-2">Phone (Optional):</label>
+      {{ form.phone.errors }}
+      {{ form.phone }}
+    </div>
+    <div>
+      <label for="{{ form.message.id_for_label }}" class="block text-gray-700 text-sm font-bold mb-2">Message:</label>
+      {{ form.message.errors }}
+      {{ form.message }}
+    </div>
+    <button type="submit" class="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700">
+      Send Message
+    </button>
+  </form>
+</section>
 
   <!-- Carousel Script -->
   <script>
