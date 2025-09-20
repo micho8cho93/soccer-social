@@ -28,7 +28,7 @@ dotenv.load_dotenv(os.path.join(BASE_DIR, '.env'))
 SECRET_KEY = os.getenv('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = ['soccersocial.up.railway.app', 'web-production-97d6f.up.railway.app', '.railway.app', 'localhost', '127.0.0.1', '127.0.0.1:8000']
 

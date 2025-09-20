@@ -1,0 +1,98 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Liga Soccer Social</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 text-gray-900">
+
+  <!-- Navbar -->
+  <nav class="flex justify-between items-center px-8 py-4 bg-white shadow">
+    <div class="text-2xl font-bold text-green-600">Liga Soccer Social</div>
+    <div class="space-x-6">
+      <a href="{% url 'login' %}" class="text-gray-700 hover:text-green-600">Login</a>
+      <a href="{% url 'public_league_selection' %}" class="text-gray-700 hover:text-green-600">Public</a>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="grid grid-cols-1 md:grid-cols-2 gap-8 px-8 py-16 items-center">
+    <div>
+      <h1 class="text-4xl font-extrabold mb-4">Welcome to Liga Soccer Social</h1>
+      <p class="text-lg text-gray-600 mb-6">
+        A recreational soccer league for players of all levels to connect, 
+        compete, and enjoy the game. Whether you’re a beginner or a seasoned 
+        player, join us to be part of the community.
+      </p>
+      <a href="#contact" 
+         class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 inline-block">
+        Join the League
+      </a>
+    </div>
+    <div>
+      <img src="{% static 'images/img1.jpg' %}" alt="Soccer photo" class="rounded-lg shadow-lg">
+    </div>
+  </section>
+
+  <!-- Carousel -->
+  <section class="px-8 py-16 bg-gray-100">
+    <h2 class="text-3xl font-bold text-center mb-8">League Moments</h2>
+    <div class="relative max-w-4xl mx-auto">
+      <div class="overflow-hidden rounded-lg shadow-lg">
+        <div class="flex transition-transform duration-500" id="carousel">
+          <img src="{% static 'images/img2.jpg' %}" class="w-full flex-shrink-0" alt="Game 1">
+          <img src="{% static 'images/img3.jpg' %}" class="w-full flex-shrink-0" alt="Game 2">
+          <img src="{% static 'images/img4.jpg' %}" class="w-full flex-shrink-0" alt="Game 3">
+          <img src="{% static 'images/img5.jpg' %}" class="w-full flex-shrink-0" alt="Game 4">
+        </div>
+      </div>
+      <div class="flex justify-between absolute inset-0 items-center px-4">
+        <button onclick="prevSlide()" class="bg-white p-2 rounded-full shadow hover:bg-gray-200">◀</button>
+        <button onclick="nextSlide()" class="bg-white p-2 rounded-full shadow hover:bg-gray-200">▶</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Contact Form -->
+  <section id="contact" class="px-8 py-16">
+    <h2 class="text-3xl font-bold text-center mb-8">Contact Us</h2>
+    <form method="POST" action="{% url 'public_league_selection' %}" 
+          class="max-w-2xl mx-auto bg-white p-8 rounded-lg shadow space-y-4">
+      {% csrf_token %}
+      <input type="text" name="name" placeholder="Your Name" class="w-full border p-3 rounded">
+      <input type="email" name="email" placeholder="Your Email" class="w-full border p-3 rounded">
+      <textarea name="message" placeholder="Your Message" rows="5" class="w-full border p-3 rounded"></textarea>
+      <button type="submit" class="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700">
+        Send Message
+      </button>
+    </form>
+  </section>
+
+  <!-- Carousel Script -->
+  <script>
+    let currentIndex = 0;
+    const slides = document.querySelectorAll("#carousel img");
+    const totalSlides = slides.length;
+
+    function showSlide(index) {
+      const carousel = document.getElementById("carousel");
+      carousel.style.transform = `translateX(${-index * 100}%)`;
+    }
+
+    function nextSlide() {
+      currentIndex = (currentIndex + 1) % totalSlides;
+      showSlide(currentIndex);
+    }
+
+    function prevSlide() {
+      currentIndex = (currentIndex - 1 + totalSlides) % totalSlides;
+      showSlide(currentIndex);
+    }
+  </script>
+
+</body>
+</html>
