@@ -3,8 +3,9 @@
 {% block content %}
 <div class="container mx-auto px-4 py-8">
     <h1 class="text-3xl font-bold mb-4">Referee Portal</h1>
-    <table class="min-w-full bg-white">
-        <thead>
+    <div class="overflow-x-auto">
+        <table class="min-w-full bg-white">
+            <thead>
             <tr>
                 <th class="py-2 px-4 border-b">Date</th>
                 <th class="py-2 px-4 border-b">Home Team</th>
@@ -15,13 +16,13 @@
         <tbody>
             {% for match in matches %}
             <tr>
-                <td class="py-2 px-4 border-b">{{ match.date }}</td>
+                <td class="py-2 px-4 border-b">{{ match.date|date:"F d, Y" }}</td>
                 <td class="py-2 px-4 border-b">{{ match.home_team }}</td>
                 <td class="py-2 px-4 border-b">{{ match.away_team }}</td>
                 <td class="py-2 px-4 border-b"><a href="{% url 'referee_match_update' match_id=match.id %}">Edit</a></td>
             </tr>
             {% endfor %}
         </tbody>
-    </table>
-</div>
+            </table>
+        </div></div>
 {% endblock %}
