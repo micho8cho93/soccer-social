@@ -1,10 +1,12 @@
 from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib import messages # Added this line
 from .models import Matchday, Match, Team, Player, PlayerStatistic, LeagueStanding, Season, League, Tournament, Group, TournamentMatch, TournamentPlayerStatistic, GroupStanding, Referee
 
 from django.db.models import Sum, F
 from django.http import JsonResponse, HttpResponseForbidden
 from django.contrib.auth.decorators import login_required
-from .forms import PlayerForm, RosterUpdateForm
+from .forms import PlayerForm, RosterUpdateForm, PlayerStatisticForm
+from django.forms import modelformset_factory
 from django.utils import timezone
 from collections import defaultdict
 from django.db.models.functions import TruncDate
@@ -694,6 +696,36 @@ def public_tournament_leaderboard(request, tournament_id, season_id):
 
 def landing_page(request):
     return render(request, 'futbolapp/landing_page.html')
+
+def referee_match_update(request, match_id):
+    match = get_object_or_404(Match, pk=match_id)
+    PlayerStatisticFormSet = modelformset_factory(PlayerStatistic, form=PlayerStatisticForm, extra=0)
+
+    # Ensure PlayerStatistic entries exist for all players in both teams
+    for team in [match.home_team, match.away_team]:
+        for player in team.player_set.all():
+            PlayerStatistic.objects.get_or_create(player=player, match=match)
+
+    if request.method == 'POST':
+        formset = PlayerStatisticFormSet(request.POST, queryset=PlayerStatistic.objects.filter(match=match))
+        if formset.is_valid():
+            formset.save()
+            messages.success(request, 'Player statistics updated successfully!')
+            return redirect('referee_portal')
+    else:
+        formset = PlayerStatisticFormSet(queryset=PlayerStatistic.objects.filter(match=match))
+
+    home_team_players = Player.objects.filter(team=match.home_team)
+    away_team_players = Player.objects.filter(team=match.away_team)
+
+    context = {
+        'match': match,
+        'formset': formset,
+        'home_team_players': home_team_players,
+        'away_team_players': away_team_players,
+    }
+    return render(request, 'futbolapp/referee_matchupdate.html', context)
+
 
 def referee_portal(request):
     if 'referee_username' not in request.session:

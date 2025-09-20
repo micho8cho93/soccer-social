@@ -12,6 +12,7 @@ public_urlpatterns = [
     path('tournament/<int:tournament_id>/<int:season_id>/leaderboard/', views.public_tournament_leaderboard, name='public_tournament_leaderboard'),
     path('referee_portal/', views.referee_portal, name='referee_portal'),
     path('referee_login/', views.referee_login, name='referee_login'),
+    path('referee/match/<int:match_id>/update/', views.referee_match_update, name='referee_match_update'),
 ]
 
 urlpatterns = [

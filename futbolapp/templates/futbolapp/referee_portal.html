@@ -9,7 +9,7 @@
                 <th class="py-2 px-4 border-b">Date</th>
                 <th class="py-2 px-4 border-b">Home Team</th>
                 <th class="py-2 px-4 border-b">Away Team</th>
-                <th class="py-2 px-4 border-b">Time</th>
+                <th class="py-2 px-4 border-b"></th>
             </tr>
         </thead>
         <tbody>
@@ -18,7 +18,7 @@
                 <td class="py-2 px-4 border-b">{{ match.date }}</td>
                 <td class="py-2 px-4 border-b">{{ match.home_team }}</td>
                 <td class="py-2 px-4 border-b">{{ match.away_team }}</td>
-                <td class="py-2 px-4 border-b">{{ match.time }}</td>
+                <td class="py-2 px-4 border-b"><a href="{% url 'referee_match_update' match_id=match.id %}">Edit</a></td>
             </tr>
             {% endfor %}
         </tbody>
