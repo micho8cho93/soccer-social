@@ -388,3 +388,10 @@ class GroupStanding(models.Model):
         for standing in standings:
             cls.objects.filter(pk=standing.pk).update(position=position)
             position += 1
+
+class Referee(models.Model):
+    name = models.CharField(max_length=100)
+    username = models.CharField(max_length=100, unique=True)
+
+    def __str__(self):
+        return self.name

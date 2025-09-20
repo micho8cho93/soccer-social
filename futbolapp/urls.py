@@ -10,6 +10,8 @@ public_urlpatterns = [
     path('tournament/<int:tournament_id>/<int:season_id>/', views.public_tournament_home, name='public_tournament_home'),
     path('tournament/<int:tournament_id>/<int:season_id>/standings/', views.public_tournament_standings, name='public_tournament_standings'),
     path('tournament/<int:tournament_id>/<int:season_id>/leaderboard/', views.public_tournament_leaderboard, name='public_tournament_leaderboard'),
+    path('referee_portal/', views.referee_portal, name='referee_portal'),
+    path('referee_login/', views.referee_login, name='referee_login'),
 ]
 
 urlpatterns = [

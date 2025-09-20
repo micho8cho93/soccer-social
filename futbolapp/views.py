@@ -1,5 +1,6 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from .models import Matchday, Match, Team, Player, PlayerStatistic, LeagueStanding, Season, League, Tournament, Group, TournamentMatch, TournamentPlayerStatistic, GroupStanding
+from .models import Matchday, Match, Team, Player, PlayerStatistic, LeagueStanding, Season, League, Tournament, Group, TournamentMatch, TournamentPlayerStatistic, GroupStanding, Referee
+
 from django.db.models import Sum, F
 from django.http import JsonResponse, HttpResponseForbidden
 from django.contrib.auth.decorators import login_required
@@ -693,3 +694,20 @@ def public_tournament_leaderboard(request, tournament_id, season_id):
 
 def landing_page(request):
     return render(request, 'futbolapp/landing_page.html')
+
+def referee_portal(request):
+    if 'referee_username' not in request.session:
+        return redirect('referee_login')
+    matches = Match.objects.all().order_by('date')
+    return render(request, 'futbolapp/referee_portal.html', {'matches': matches})
+
+def referee_login(request):
+    if request.method == 'POST':
+        username = request.POST.get('username')
+        try:
+            referee = Referee.objects.get(username=username)
+            request.session['referee_username'] = referee.username
+            return redirect('referee_portal')
+        except Referee.DoesNotExist:
+            return render(request, 'futbolapp/referee_login.html', {'error': 'Invalid username'})
+    return render(request, 'futbolapp/referee_login.html')

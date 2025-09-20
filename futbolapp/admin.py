@@ -292,3 +292,10 @@ class GroupStandingAdmin(admin.ModelAdmin):
     list_filter = ('group__tournament', 'group')
     readonly_fields = ('goal_difference',)
     ordering = ('group', 'position')
+
+from .models import Referee
+
+@admin.register(Referee)
+class RefereeAdmin(admin.ModelAdmin):
+    list_display = ('name', 'username')
+    search_fields = ('name', 'username')
