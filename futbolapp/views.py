@@ -733,6 +733,10 @@ def landing_page(request):
     return render(request, "futbolapp/landing_page.html", {"form": form})
 
 
+def pickup_calendar(request):
+    return render(request, 'futbolapp/pickup_calendar.html')
+
+
 def contact_success(request):
     return render(request, 'futbolapp/contact_success.html')
 

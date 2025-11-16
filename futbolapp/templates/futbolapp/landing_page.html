@@ -50,9 +50,9 @@
       <p class="location animate-in-3">📍 COLEGIO ARENALES · CARABANCHEL</p>
       
       <div class="cta-buttons animate-in-4">
-        <a href="{% url 'landing_page' %}" class="btn btn-primary">Join Now!</a>
-        <a href="{% url 'landing_page' %}" class="btn btn-secondary">View Matches</a>
-        <a href="{% url 'landing_page' %}" class="btn btn-tertiary">League Stats</a>
+        <a href="{{ registration_url|default:'https://docs.google.com/forms/d/e/1FAIpQLSf4X1R_utGfJO_2BSY5tas2QezFlvE3kGsEIzHix7BGGtsIJA/viewform?usp=dialog' }}" class="btn btn-primary">Join Now!</a>
+        <a href="{% url 'pickup_calendar' %}" class="btn btn-secondary">View Matches</a>
+        <a href="{% url 'public_league_selection' %}" class="btn btn-tertiary">League Stats</a>
       </div>
     </div>
   </section>
