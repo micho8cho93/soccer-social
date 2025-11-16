@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django import forms
 from datetime import datetime
-from .models import League, Season, Team, Player, Matchday, Match, PlayerStatistic, LeagueStanding, Profile, Tournament, Group, TournamentMatch, TournamentPlayerStatistic, GroupStanding
+from .models import League, Season, Team, Player, Matchday, Match, PlayerStatistic, LeagueStanding, Profile, Tournament, Group, TournamentMatch, TournamentPlayerStatistic, GroupStanding, PickupGame
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
 
@@ -299,3 +299,59 @@ from .models import Referee
 class RefereeAdmin(admin.ModelAdmin):
     list_display = ('name', 'username')
     search_fields = ('name', 'username')
+
+# ====================
+# PICKUP GAMES ADMIN
+# ====================
+
+@admin.register(PickupGame)
+class PickupGameAdmin(admin.ModelAdmin):
+    list_display = ('get_game_title', 'get_formatted_time', 'location', 'current_players', 'max_players', 'price', 'is_active')
+    list_filter = ('is_active', 'location')
+    search_fields = ('location',)
+    date_hierarchy = 'time'
+    
+    fieldsets = (
+        ('Game Information', {
+            'fields': ('location', 'time', 'price')
+        }),
+        ('Players', {
+            'fields': ('max_players', 'current_players')
+        }),
+        ('Settings', {
+            'fields': ('is_active',)
+        }),
+    )
+    
+    readonly_fields = ('current_players',)
+    
+    def get_game_title(self, obj):
+        """Generate a title for the game based on location and date"""
+        return f"Pickup Game - {obj.location}"
+    get_game_title.short_description = 'Game'
+    get_game_title.admin_order_field = 'location'
+    
+    def get_formatted_time(self, obj):
+        """Display formatted date and time"""
+        return obj.time.strftime('%A, %B %d, %Y at %I:%M %p')
+    get_formatted_time.short_description = 'Date & Time'
+    get_formatted_time.admin_order_field = 'time'
+    
+    def get_queryset(self, request):
+        """Optimize queryset"""
+        qs = super().get_queryset(request)
+        return qs.order_by('-time')
+    
+    actions = ['activate_games', 'deactivate_games']
+    
+    def activate_games(self, request, queryset):
+        """Bulk activate selected games"""
+        updated = queryset.update(is_active=True)
+        self.message_user(request, f'{updated} game(s) successfully activated.')
+    activate_games.short_description = 'Activate selected games'
+    
+    def deactivate_games(self, request, queryset):
+        """Bulk deactivate selected games"""
+        updated = queryset.update(is_active=False)
+        self.message_user(request, f'{updated} game(s) successfully deactivated.')
+    deactivate_games.short_description = 'Deactivate selected games'

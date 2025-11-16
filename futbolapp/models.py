@@ -404,6 +404,7 @@ class PickupGame(models.Model):
     max_players = models.IntegerField(default=10)
     current_players = models.IntegerField(default=0)
     is_active = models.BooleanField(default=True)
+    price = models.FloatField(default=4.5)
 
     def __str__(self):
         return f"Game at {self.location} on {self.time.date()}"
