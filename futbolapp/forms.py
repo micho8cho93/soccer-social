@@ -70,36 +70,3 @@ class RosterUpdateForm(forms.Form):
                 player_stat.present = player in present_away_players
                 player_stat.save()
 
-class ContactForm(forms.Form):
-    name = forms.CharField(
-        max_length=100,
-        widget=forms.TextInput(attrs={
-            'placeholder': 'Your Name',
-            'class': 'w-full border p-3 rounded',
-            'title': 'Please enter your full name',
-        })
-    )
-    email = forms.EmailField(
-        widget=forms.EmailInput(attrs={
-            'placeholder': 'Your Email',
-            'class': 'w-full border p-3 rounded',
-            'title': 'Please enter your email address',
-        })
-    )
-    phone = forms.CharField(
-        max_length=20,
-        required=False,
-        widget=forms.TextInput(attrs={
-            'placeholder': 'Country Code + WhatsApp number',
-            'class': 'w-full border p-3 rounded',
-            'title': 'Please enter your phone number (optional)',
-        })
-    )
-    message = forms.CharField(
-        widget=forms.Textarea(attrs={
-            'placeholder': 'Your Message',
-            'rows': 5,
-            'class': 'w-full border p-3 rounded',
-            'title': 'Please enter your message',
-        })
-    )

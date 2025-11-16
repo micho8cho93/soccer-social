@@ -227,7 +227,7 @@ h1 span.highlight {
   font-size: clamp(1.5rem, 4vw, 2.5rem);
   font-weight: 100;
   letter-spacing: 0.3em;
-  color: var(--chalk);
+  color: white;
   text-transform: uppercase;
 }
 
@@ -387,16 +387,22 @@ h1 span.highlight {
 
 .social-grid {
   max-width: 1400px;
-  margin: 0 37rem auto;
+  margin: 0 auto;
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 3.5rem;
+  justify-content: center;
+  text-align: center;
 }
 
 @media (min-width: 768px) {
   .social-grid {
     grid-template-columns: repeat(4, 1fr);
   }
+}
+
+.social-card {
+  text-align: center;
 }
 
 

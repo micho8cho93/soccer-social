@@ -395,3 +395,15 @@ class Referee(models.Model):
 
     def __str__(self):
         return self.name
+
+# Pickup games
+
+class PickupGame(models.Model):
+    location = models.CharField(max_length=100)
+    time = models.DateTimeField()
+    max_players = models.IntegerField(default=10)
+    current_players = models.IntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"Game at {self.location} on {self.time.date()}"

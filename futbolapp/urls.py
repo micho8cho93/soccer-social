@@ -1,5 +1,9 @@
 from django.urls import path, include
+from rest_framework.routers import DefaultRouter
 from . import views
+
+router = DefaultRouter()
+router.register(r'games', views.PickupGameViewSet)
 
 public_urlpatterns = [
     path('', views.public_league_selection, name='public_league_selection'),
@@ -43,5 +47,5 @@ urlpatterns = [
     path('tournament_team/<int:tournament_id>/<int:season_id>/<int:team_id>/player/<int:player_id>/edit/', views.player_form_view, name='tournament_player_edit'),
     path('player/<int:player_id>/', views.player_detail, name='player_detail'),
     path('pickup-calendar/', views.pickup_calendar, name='pickup_calendar'),
-    path('contact/success/', views.contact_success, name='contact_success'),
+    path('api/', include(router.urls)),
 ]

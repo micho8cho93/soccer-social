@@ -44,10 +44,13 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'rest_framework',
+    'corsheaders',  # Required for cross-domain communication
     'futbolapp',
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -134,17 +137,41 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 LOGIN_REDIRECT_URL = '/futbol/' # Redirect to league selection after login
 LOGIN_URL = '/login/' # URL for the login page
 
-# Email Settings for Contact Form
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = os.getenv('EMAIL_HOST')
-EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
-EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() == 'true'
-EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'webmaster@localhost')
-CONTACT_EMAIL = os.getenv('CONTACT_EMAIL')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# --- CORS Configuration ---
+
+# Set this to True during local development only if you don't know the exact port
+# of your frontend, but it is NOT recommended for production.
+# CORS_ALLOW_ALL_ORIGINS = True 
+
+# Use this for safer local development:
+CORS_ALLOWED_ORIGINS = [
+    # Add the exact URL(s) where your 'pickups' HTML/JS project is running.
+    "http://127.0.0.1:3000",  # Common port for VS Code Live Server
+    "http://localhost:3000",
+    "http://localhost:8080",
+    "https://testliga.up.railway.app"  # production frontend URL for deployment
+]
+
+# Allow credentials (cookies, authentication) to be included in CORS requests
+CORS_ALLOW_CREDENTIALS = True
+
+# --- Django Rest Framework Configuration ---
+
+REST_FRAMEWORK = {
+    # Use Django's standard `django.contrib.auth` permissions,
+    # or allow read-only access for unauthenticated users.
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.AllowAny' 
+    ],
+    # Set the default parser to JSON
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+        'rest_framework.renderers.BrowsableAPIRenderer', # Useful for testing in browser
+    ]
+}
