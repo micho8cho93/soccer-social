@@ -156,7 +156,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:8080",
     "https://testliga.up.railway.app",
-    "https://micho8cho93.github.io/pickup/"  # production frontend URL for deployment
+    "https://micho8cho93.github.io"  # production frontend URL for deployment
 ]
 
 # Allow credentials (cookies, authentication) to be included in CORS requests
