@@ -32,7 +32,7 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['soccersocial.up.railway.app', 'web-production-97d6f.up.railway.app', '.railway.app', 'localhost', '127.0.0.1', '127.0.0.1:8000']
 
-CSRF_TRUSTED_ORIGINS = ['https://soccersocial.up.railway.app', 'https://web-production-97d6f.up.railway.app']
+CSRF_TRUSTED_ORIGINS = ['https://soccersocial.up.railway.app', 'https://web-production-97d6f.up.railway.app', 'https://testliga.up.railway.app']
 
 
 # Application definition
@@ -155,7 +155,8 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:3000",  # Common port for VS Code Live Server
     "http://localhost:3000",
     "http://localhost:8080",
-    "https://testliga.up.railway.app"  # production frontend URL for deployment
+    "https://testliga.up.railway.app",
+    "https://micho8cho93.github.io/"  # production frontend URL for deployment
 ]
 
 # Allow credentials (cookies, authentication) to be included in CORS requests
