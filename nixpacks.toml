@@ -1,17 +1,8 @@
 [phases.setup]
-nixPkgs = ['python312', 'postgresql', 'nodejs']
-
-[phases.install]
-cmds = [
-  'npm ci',
-  'python -m pip install -r requirements.txt'
-]
+nixPkgs = ['...', 'postgresql']
 
 [phases.build]
-cmds = [
-  'npm run build:css',
-  'python manage.py collectstatic --no-input --clear'
-]
+cmds = ['npm run build:css']
 
 [start]
 cmd = 'gunicorn config.wsgi --log-file -'
