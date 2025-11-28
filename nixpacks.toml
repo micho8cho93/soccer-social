@@ -1,6 +1,12 @@
 [phases.setup]
 nixPkgs = ['python312', 'postgresql', 'nodejs']
 
+[phases.install]
+cmds = [
+  'npm ci',
+  'python3.12 -m pip install -r requirements.txt'
+]
+
 [phases.build]
 cmds = [
   'npm run build:css',
