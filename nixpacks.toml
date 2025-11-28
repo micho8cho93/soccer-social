@@ -1,20 +1,10 @@
-providers = []
-
 [phases.setup]
-nixPkgs = ['python312', 'nodejs_20', 'postgresql']
-
-[phases.install]
-dependsOn = ['setup']
-cmds = [
-  'pip install -r requirements.txt',
-  'npm ci --production=false'
-]
+nixPkgs = ['...', 'postgresql']
 
 [phases.build]
-dependsOn = ['install']
 cmds = [
   'npm run build:css',
-  'python3 manage.py collectstatic --no-input --clear'
+  'python manage.py collectstatic --no-input --clear'
 ]
 
 [start]
