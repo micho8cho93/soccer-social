@@ -176,3 +176,4 @@ REST_FRAMEWORK = {
         'rest_framework.renderers.BrowsableAPIRenderer', # Useful for testing in browser
     ]
 }
+
