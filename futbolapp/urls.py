@@ -4,6 +4,7 @@ from . import views
 
 router = DefaultRouter()
 router.register(r'games', views.PickupGameViewSet)
+router.register(r'game-players', views.PickupGamePlayerViewSet)
 
 public_urlpatterns = [
     path('', views.public_league_selection, name='public_league_selection'),

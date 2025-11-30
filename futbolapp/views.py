@@ -3,7 +3,7 @@ from django.contrib import messages
 from django.core.mail import send_mail
 from django.conf import settings
 from rest_framework import viewsets
-from .models import Matchday, Match, Team, Player, PlayerStatistic, LeagueStanding, Season, League, Tournament, Group, TournamentMatch, TournamentPlayerStatistic, GroupStanding, Referee, PickupGame
+from .models import Matchday, Match, Team, Player, PlayerStatistic, LeagueStanding, Season, League, Tournament, Group, TournamentMatch, TournamentPlayerStatistic, GroupStanding, Referee, PickupGame, PickupGamePlayer
 from django.db.models import Sum, F
 from django.http import JsonResponse, HttpResponseForbidden
 from django.contrib.auth.decorators import login_required
@@ -13,7 +13,7 @@ from django.utils import timezone
 from collections import defaultdict
 from django.db.models.functions import TruncDate
 from django.db.models import Q
-from .serializers import PickupGameSerializer
+from .serializers import PickupGameSerializer, PickupGamePlayerSerializer
 
 # Create your views here.
 
@@ -758,3 +758,21 @@ class PickupGameViewSet(viewsets.ModelViewSet):
     # Retrieve all active pickup games
     queryset = PickupGame.objects.filter(is_active=True).order_by('time')
     serializer_class = PickupGameSerializer
+
+class PickupGamePlayerViewSet(viewsets.ModelViewSet):
+    queryset = PickupGamePlayer.objects.all()
+    serializer_class = PickupGamePlayerSerializer
+    
+    def perform_create(self, serializer):
+        """Create a player and update the pickup game's current_players count."""
+        player = serializer.save()
+        pickup_game = player.pickup_game
+        pickup_game.current_players = pickup_game.players.count()
+        pickup_game.save()
+    
+    def perform_destroy(self, instance):
+        """Delete a player and update the pickup game's current_players count."""
+        pickup_game = instance.pickup_game
+        instance.delete()
+        pickup_game.current_players = pickup_game.players.count()
+        pickup_game.save()
