@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django import forms
 from datetime import datetime
-from .models import League, Season, Team, Player, Matchday, Match, PlayerStatistic, LeagueStanding, Profile, Tournament, Group, TournamentMatch, TournamentPlayerStatistic, GroupStanding, PickupGame
+from .models import League, Season, Team, Player, Matchday, Match, PlayerStatistic, LeagueStanding, Profile, Tournament, Group, TournamentMatch, TournamentPlayerStatistic, GroupStanding, PickupGame, PickupGamePlayer
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
 
@@ -304,19 +304,29 @@ class RefereeAdmin(admin.ModelAdmin):
 # PICKUP GAMES ADMIN
 # ====================
 
+class PickupGamePlayerInline(admin.TabularInline):
+    model = PickupGamePlayer
+    extra = 0
+    fields = ('first_name', 'last_name', 'email', 'phone_number', 'age')
+    verbose_name = 'Player'
+    verbose_name_plural = 'Registered Players'
+    readonly_fields = ()  # Allow editing of all fields
+
 @admin.register(PickupGame)
 class PickupGameAdmin(admin.ModelAdmin):
     list_display = ('get_game_title', 'get_formatted_time', 'location', 'current_players', 'max_players', 'price', 'is_active')
     list_filter = ('is_active', 'location')
     search_fields = ('location',)
     date_hierarchy = 'time'
+    inlines = [PickupGamePlayerInline]
     
     fieldsets = (
         ('Game Information', {
             'fields': ('location', 'time', 'price')
         }),
         ('Players', {
-            'fields': ('max_players', 'current_players')
+            'fields': ('max_players', 'current_players'),
+            'description': 'Maximum players allowed and current registered players. Registered players are listed below.'
         }),
         ('Settings', {
             'fields': ('is_active',)
@@ -340,7 +350,15 @@ class PickupGameAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         """Optimize queryset"""
         qs = super().get_queryset(request)
-        return qs.order_by('-time')
+        return qs.prefetch_related('players').order_by('-time')
+    
+    def save_formset(self, request, form, formset, change):
+        """Override to update current_players count after saving inline players"""
+        super().save_formset(request, form, formset, change)
+        # Update current_players count after formset is saved
+        if form.instance.pk:
+            form.instance.current_players = form.instance.players.count()
+            form.instance.save()
     
     actions = ['activate_games', 'deactivate_games']
     
@@ -355,3 +373,25 @@ class PickupGameAdmin(admin.ModelAdmin):
         updated = queryset.update(is_active=False)
         self.message_user(request, f'{updated} game(s) successfully deactivated.')
     deactivate_games.short_description = 'Deactivate selected games'
+
+@admin.register(PickupGamePlayer)
+class PickupGamePlayerAdmin(admin.ModelAdmin):
+    list_display = ('first_name', 'last_name', 'email', 'phone_number', 'age', 'pickup_game')
+    list_filter = ('pickup_game',)
+    search_fields = ('first_name', 'last_name', 'email', 'phone_number')
+    readonly_fields = ()
+    
+    def save_model(self, request, obj, form, change):
+        """Update current_players count when player is saved"""
+        super().save_model(request, obj, form, change)
+        if obj.pickup_game:
+            obj.pickup_game.current_players = obj.pickup_game.players.count()
+            obj.pickup_game.save()
+    
+    def delete_model(self, request, obj):
+        """Update current_players count when player is deleted"""
+        pickup_game = obj.pickup_game
+        super().delete_model(request, obj)
+        if pickup_game:
+            pickup_game.current_players = pickup_game.players.count()
+            pickup_game.save()
