@@ -2,7 +2,9 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.core.mail import send_mail
 from django.conf import settings
-from rest_framework import viewsets
+from rest_framework import viewsets, status
+from rest_framework.response import Response
+from rest_framework.exceptions import ValidationError
 from .models import Matchday, Match, Team, Player, PlayerStatistic, LeagueStanding, Season, League, Tournament, Group, TournamentMatch, TournamentPlayerStatistic, GroupStanding, Referee, PickupGame, PickupGamePlayer
 from django.db.models import Sum, F
 from django.http import JsonResponse, HttpResponseForbidden
@@ -762,6 +764,25 @@ class PickupGameViewSet(viewsets.ModelViewSet):
 class PickupGamePlayerViewSet(viewsets.ModelViewSet):
     queryset = PickupGamePlayer.objects.all()
     serializer_class = PickupGamePlayerSerializer
+    
+    def create(self, request, *args, **kwargs):
+        """Override create to ensure proper error handling and data persistence."""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        # Validate that the pickup_game exists and is active
+        pickup_game_id = request.data.get('pickup_game')
+        try:
+            pickup_game = PickupGame.objects.get(id=pickup_game_id, is_active=True)
+        except PickupGame.DoesNotExist:
+            raise ValidationError({'pickup_game': 'Invalid or inactive game ID.'})
+        
+        # Create the player using perform_create which handles the count update
+        self.perform_create(serializer)
+        
+        # Return the created player with 201 status
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
     
     def perform_create(self, serializer):
         """Create a player and update the pickup game's current_players count."""
