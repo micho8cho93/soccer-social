@@ -364,19 +364,21 @@ class ModelTests(TestCase):
         group.teams.add(team_alpha, team_beta, team_gamma)
         
         # Create standings with tie-break scenarios
+        # team_beta and team_gamma have same points, goal_diff, and goals_for - will be sorted by name
+        # team_alpha has lower goal_difference, so it should be third
         GroupStanding.objects.create(group=group, team=team_alpha, points=6, goal_difference=3, goals_for=5)
         GroupStanding.objects.create(group=group, team=team_beta, points=6, goal_difference=4, goals_for=6)
         GroupStanding.objects.create(group=group, team=team_gamma, points=6, goal_difference=4, goals_for=6)
         
         GroupStanding.update_positions_for_group(group)
         
-        # Verify positions: beta has higher goal_diff, then gamma/alpha by goal_diff and name
+        # Verify positions: team_beta and team_gamma tie on stats, sorted alphabetically
         standing_alpha = GroupStanding.objects.get(team=team_alpha, group=group)
         standing_beta = GroupStanding.objects.get(team=team_beta, group=group)
         standing_gamma = GroupStanding.objects.get(team=team_gamma, group=group)
         
         self.assertEqual(standing_beta.position, 1)   # Higher goal_difference
-        self.assertEqual(standing_gamma.position, 2)  # Same goal_diff & goals_for, but alphabetically second
+        self.assertEqual(standing_gamma.position, 2)  # Same goal_diff & goals_for as beta, alphabetically second
         self.assertEqual(standing_alpha.position, 3)  # Lower goal_difference
 
     def test_player_statistic_post_save_signal_updates_match_scores(self):

@@ -5,10 +5,11 @@ from futbolapp.models import League, Season, Team, Player, Matchday, Match, Leag
 from datetime import date, datetime, timedelta
 import pytz
 import json
+from django.conf import settings
 
 @override_settings(
     STATICFILES_STORAGE='django.contrib.staticfiles.storage.StaticFilesStorage',
-    SECRET_KEY='test-secret-key-for-testing-only'
+    SECRET_KEY=settings.SECRET_KEY if settings.SECRET_KEY else 'test-secret-key-for-testing-only'
 )
 class ViewTests(TestCase):
 
