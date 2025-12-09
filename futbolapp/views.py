@@ -1,13 +1,21 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from .models import Matchday, Match, Team, Player, PlayerStatistic, LeagueStanding, Season, League, Tournament, Group, TournamentMatch, TournamentPlayerStatistic, GroupStanding
+from django.contrib import messages
+from django.core.mail import send_mail
+from django.conf import settings
+from rest_framework import viewsets, status
+from rest_framework.response import Response
+from rest_framework.exceptions import ValidationError
+from .models import Matchday, Match, Team, Player, PlayerStatistic, LeagueStanding, Season, League, Tournament, Group, TournamentMatch, TournamentPlayerStatistic, GroupStanding, Referee, PickupGame, PickupGamePlayer
 from django.db.models import Sum, F
 from django.http import JsonResponse, HttpResponseForbidden
 from django.contrib.auth.decorators import login_required
-from .forms import PlayerForm, RosterUpdateForm
+from .forms import PlayerForm, RosterUpdateForm, PlayerStatisticForm
+from django.forms import modelformset_factory
 from django.utils import timezone
 from collections import defaultdict
 from django.db.models.functions import TruncDate
 from django.db.models import Q
+from .serializers import PickupGameSerializer, PickupGamePlayerSerializer
 
 # Create your views here.
 
@@ -466,22 +474,35 @@ def tournament_leaderboard(request, tournament_id, season_id):
     )
 
     # Goals Leader
-    goals_leader = player_stats_in_tournament.values('player__name', 'player__team__name')         .annotate(total_goals=Sum('goals'))         .order_by('-total_goals')[:5]
+    goals_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_goals=Sum('goals')) \
+        .order_by('-total_goals')[:5]
 
     # Assists Leader
-    assists_leader = player_stats_in_tournament.values('player__name', 'player__team__name')         .annotate(total_assists=Sum('assists'))         .order_by('-total_assists')[:5]
+    assists_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_assists=Sum('assists')) \
+        .order_by('-total_assists')[:5]
 
     # Goal Contributions Leader (Goals + Assists)
-    goal_contributions_leader = player_stats_in_tournament.values('player__name', 'player__team__name')         .annotate(total_contributions=Sum(F('goals') + F('assists')))         .order_by('-total_contributions')[:5]
+    goal_contributions_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_contributions=Sum(F('goals') + F('assists'))) \
+        .order_by('-total_contributions')[:5]
 
     # Clean Sheets Leader (only goalkeepers)
-    clean_sheets_leader = player_stats_in_tournament.filter(player__field_position='goalkeeper')         .values('player__name', 'player__team__name')         .annotate(total_clean_sheets=Sum('clean_sheets'))         .order_by('-total_clean_sheets')[:5]
+    clean_sheets_leader = player_stats_in_tournament.filter(player__field_position='goalkeeper') \
+        .values('player__name', 'player__team__name') \
+        .annotate(total_clean_sheets=Sum('clean_sheets')) \
+        .order_by('-total_clean_sheets')[:5]
 
     # Yellow Cards Leader
-    yellow_cards_leader = player_stats_in_tournament.values('player__name', 'player__team__name')         .annotate(total_yellow_cards=Sum('yellow_cards'))         .order_by('-total_yellow_cards')[:5]
+    yellow_cards_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_yellow_cards=Sum('yellow_cards')) \
+        .order_by('-total_yellow_cards')[:5]
 
     # Red Cards Leader
-    red_cards_leader = player_stats_in_tournament.values('player__name', 'player__team__name')         .annotate(total_red_cards=Sum('red_cards'))         .order_by('-total_red_cards')[:5]
+    red_cards_leader = player_stats_in_tournament.values('player__name', 'player__team__name') \
+        .annotate(total_red_cards=Sum('red_cards')) \
+        .order_by('-total_red_cards')[:5]
 
     context = {
         'tournament': tournament,
@@ -677,3 +698,102 @@ def public_tournament_leaderboard(request, tournament_id, season_id):
         'public_viewer': True
     }
     return render(request, 'futbolapp/tournament_leaderboard.html', context)
+
+
+
+def pickup_calendar(request):
+    return render(request, 'futbolapp/pickup_calendar.html')
+
+
+def referee_match_update(request, match_id):
+    match = get_object_or_404(Match, pk=match_id)
+    PlayerStatisticFormSet = modelformset_factory(PlayerStatistic, form=PlayerStatisticForm, extra=0)
+
+    # Ensure PlayerStatistic entries exist for all players in both teams
+    for team in [match.home_team, match.away_team]:
+        for player in team.player_set.all():
+            PlayerStatistic.objects.get_or_create(player=player, match=match)
+
+    if request.method == 'POST':
+        formset = PlayerStatisticFormSet(request.POST, queryset=PlayerStatistic.objects.filter(match=match))
+        if formset.is_valid():
+            formset.save()
+            messages.success(request, 'Player statistics updated successfully!')
+            return redirect('referee_portal')
+    else:
+        formset = PlayerStatisticFormSet(queryset=PlayerStatistic.objects.filter(match=match))
+
+    home_team_players = Player.objects.filter(team=match.home_team)
+    away_team_players = Player.objects.filter(team=match.away_team)
+
+    context = {
+        'match': match,
+        'formset': formset,
+        'home_team_players': home_team_players,
+        'away_team_players': away_team_players,
+    }
+    return render(request, 'futbolapp/referee_matchupdate.html', context)
+
+
+def referee_portal(request):
+    if 'referee_username' not in request.session:
+        return redirect('referee_login')
+    matches = Match.objects.all().order_by('date')
+    return render(request, 'futbolapp/referee_portal.html', {'matches': matches})
+
+def referee_login(request):
+    if request.method == 'POST':
+        username = request.POST.get('username')
+        try:
+            referee = Referee.objects.get(username=username)
+            request.session['referee_username'] = referee.username
+            return redirect('referee_portal')
+        except Referee.DoesNotExist:
+            return render(request, 'futbolapp/referee_login.html', {'error': 'Invalid username'})
+    return render(request, 'futbolapp/referee_login.html')
+
+def landing_page(request):
+    return render(request, 'futbolapp/landing_page.html')
+
+# Pickup games
+class PickupGameViewSet(viewsets.ModelViewSet):
+    # Retrieve all active pickup games
+    queryset = PickupGame.objects.filter(is_active=True).order_by('time')
+    serializer_class = PickupGameSerializer
+
+class PickupGamePlayerViewSet(viewsets.ModelViewSet):
+    queryset = PickupGamePlayer.objects.all()
+    serializer_class = PickupGamePlayerSerializer
+    
+    def create(self, request, *args, **kwargs):
+        """Override create to ensure proper error handling and data persistence."""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        # Validate that the pickup_game exists and is active
+        pickup_game_id = request.data.get('pickup_game')
+        try:
+            pickup_game = PickupGame.objects.get(id=pickup_game_id, is_active=True)
+        except PickupGame.DoesNotExist:
+            raise ValidationError({'pickup_game': 'Invalid or inactive game ID.'})
+        
+        # Create the player using perform_create which handles the count update
+        self.perform_create(serializer)
+        
+        # Return the created player with 201 status
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+    
+    def perform_create(self, serializer):
+        """Create a player and update the pickup game's current_players count."""
+        player = serializer.save()
+        pickup_game = player.pickup_game
+        pickup_game.current_players = pickup_game.players.count()
+        pickup_game.save()
+    
+    def perform_destroy(self, instance):
+        """Delete a player and update the pickup game's current_players count."""
+        pickup_game = instance.pickup_game
+        instance.delete()
+        pickup_game.current_players = pickup_game.players.count()
+        pickup_game.save()

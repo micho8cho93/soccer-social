@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <h1 class="text-3xl font-bold mb-4">Update Match Statistics: {{ match.home_team }} vs {{ match.away_team }}</h1>
+    <p class="text-lg mb-6">Date: {{ match.date|date:"F d, Y H:i" }}</p>
+
+    <form method="post">
+        {% csrf_token %}
+        {{ formset.management_form }}
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div>
+                <h2 class="text-2xl font-semibold mb-4">{{ match.home_team.name }} Roster</h2>
+                {% for form in formset %}
+                    {% if form.instance.player in home_team_players %}
+                        <div class="bg-gray-100 p-4 rounded-lg shadow-md mb-4">
+                            <h3 class="text-xl font-medium mb-2">{{ form.instance.player.name }}</h3>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-gray-700 text-sm font-bold mb-2">Present:</label>
+                                    {{ form.present }}
+                                </div>
+                                <div>
+                                    <label class="block text-gray-700 text-sm font-bold mb-2">Goals:</label>
+                                    {{ form.goals }}
+                                </div>
+                                <div>
+                                    <label class="block text-gray-700 text-sm font-bold mb-2">Assists:</label>
+                                    {{ form.assists }}
+                                </div>
+                                <div>
+                                    <label class="block text-gray-700 text-sm font-bold mb-2">Yellow Cards:</label>
+                                    {{ form.yellow_cards }}
+                                </div>
+                                <div>
+                                    <label class="block text-gray-700 text-sm font-bold mb-2">Red Cards:</label>
+                                    {{ form.red_cards }}
+                                </div>
+                            </div>
+                            {% for hidden_field in form.hidden_fields %}
+                                {{ hidden_field }}
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+
+            <div>
+                <h2 class="text-2xl font-semibold mb-4">{{ match.away_team.name }} Roster</h2>
+                {% for form in formset %}
+                    {% if form.instance.player in away_team_players %}
+                        <div class="bg-gray-100 p-4 rounded-lg shadow-md mb-4">
+                            <h3 class="text-xl font-medium mb-2">{{ form.instance.player.name }}</h3>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-gray-700 text-sm font-bold mb-2">Present:</label>
+                                    {{ form.present }}
+                                </div>
+                                <div>
+                                    <label class="block text-gray-700 text-sm font-bold mb-2">Goals:</label>
+                                    {{ form.goals }}
+                                </div>
+                                <div>
+                                    <label class="block text-gray-700 text-sm font-bold mb-2">Assists:</label>
+                                    {{ form.assists }}
+                                </div>
+                                <div>
+                                    <label class="block text-gray-700 text-sm font-bold mb-2">Yellow Cards:</label>
+                                    {{ form.yellow_cards }}
+                                </div>
+                                <div>
+                                    <label class="block text-gray-700 text-sm font-bold mb-2">Red Cards:</label>
+                                    {{ form.red_cards }}
+                                </div>
+                            </div>
+                            {% for hidden_field in form.hidden_fields %}
+                                {{ hidden_field }}
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+
+        <button type="submit" class="mt-8 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+            Save Changes
+        </button>
+    </form>
+</div>
+{% endblock %}

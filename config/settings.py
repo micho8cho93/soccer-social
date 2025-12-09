@@ -28,11 +28,11 @@ dotenv.load_dotenv(os.path.join(BASE_DIR, '.env'))
 SECRET_KEY = os.getenv('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
 ALLOWED_HOSTS = ['soccersocial.up.railway.app', 'web-production-97d6f.up.railway.app', '.railway.app', 'localhost', '127.0.0.1', '127.0.0.1:8000']
 
-CSRF_TRUSTED_ORIGINS = ['https://soccersocial.up.railway.app', 'https://web-production-97d6f.up.railway.app']
+CSRF_TRUSTED_ORIGINS = ['https://soccersocial.up.railway.app', 'https://web-production-97d6f.up.railway.app', 'https://testliga.up.railway.app']
 
 
 # Application definition
@@ -44,10 +44,13 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'rest_framework',
+    'corsheaders',  # Required for cross-domain communication
     'futbolapp',
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -134,7 +137,43 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 LOGIN_REDIRECT_URL = '/futbol/' # Redirect to league selection after login
 LOGIN_URL = '/login/' # URL for the login page
 
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# --- CORS Configuration ---
+
+# Set this to True during local development only if you don't know the exact port
+# of your frontend, but it is NOT recommended for production.
+# CORS_ALLOW_ALL_ORIGINS = True 
+
+# Use this for safer local development:
+CORS_ALLOWED_ORIGINS = [
+    # Add the exact URL(s) where your 'pickups' HTML/JS project is running.
+    "http://127.0.0.1:3000",  # Common port for VS Code Live Server
+    "http://localhost:3000",
+    "http://localhost:8080",
+    "https://testliga.up.railway.app",
+    "https://micho8cho93.github.io"  # production frontend URL for deployment
+]
+
+# Allow credentials (cookies, authentication) to be included in CORS requests
+CORS_ALLOW_CREDENTIALS = True
+
+# --- Django Rest Framework Configuration ---
+
+REST_FRAMEWORK = {
+    # Use Django's standard `django.contrib.auth` permissions,
+    # or allow read-only access for unauthenticated users.
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.AllowAny' 
+    ],
+    # Set the default parser to JSON
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+        'rest_framework.renderers.BrowsableAPIRenderer', # Useful for testing in browser
+    ]
+}
+

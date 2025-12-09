@@ -6,6 +6,21 @@ class PlayerForm(forms.ModelForm):
         model = Player
         fields = ['name', 'field_position', 'role']
 
+class PlayerStatisticForm(forms.ModelForm):
+    class Meta:
+        model = PlayerStatistic
+        fields = ['present', 'goals', 'assists', 'yellow_cards', 'red_cards']
+
+class PlayerStatisticForm(forms.ModelForm):
+    class Meta:
+        model = PlayerStatistic
+        fields = ['present', 'goals', 'assists', 'yellow_cards', 'red_cards']
+
+class PlayerStatisticForm(forms.ModelForm):
+    class Meta:
+        model = PlayerStatistic
+        fields = ['present', 'goals', 'assists', 'yellow_cards', 'red_cards']
+
 class RosterUpdateForm(forms.Form):
     def __init__(self, *args, **kwargs):
         self.match = kwargs.pop('match')
@@ -54,3 +69,4 @@ class RosterUpdateForm(forms.Form):
                 player_stat, created = PlayerStatistic.objects.get_or_create(player=player, match=self.match)
                 player_stat.present = player in present_away_players
                 player_stat.save()
+

@@ -1,5 +1,10 @@
 from django.urls import path, include
+from rest_framework.routers import DefaultRouter
 from . import views
+
+router = DefaultRouter()
+router.register(r'games', views.PickupGameViewSet)
+router.register(r'game-players', views.PickupGamePlayerViewSet)
 
 public_urlpatterns = [
     path('', views.public_league_selection, name='public_league_selection'),
@@ -10,6 +15,9 @@ public_urlpatterns = [
     path('tournament/<int:tournament_id>/<int:season_id>/', views.public_tournament_home, name='public_tournament_home'),
     path('tournament/<int:tournament_id>/<int:season_id>/standings/', views.public_tournament_standings, name='public_tournament_standings'),
     path('tournament/<int:tournament_id>/<int:season_id>/leaderboard/', views.public_tournament_leaderboard, name='public_tournament_leaderboard'),
+    path('referee_portal/', views.referee_portal, name='referee_portal'),
+    path('referee_login/', views.referee_login, name='referee_login'),
+    path('referee/match/<int:match_id>/update/', views.referee_match_update, name='referee_match_update'),
 ]
 
 urlpatterns = [
@@ -39,4 +47,6 @@ urlpatterns = [
     path('tournament_team/<int:tournament_id>/<int:season_id>/<int:team_id>/player/add/', views.player_form_view, name='tournament_player_add'),
     path('tournament_team/<int:tournament_id>/<int:season_id>/<int:team_id>/player/<int:player_id>/edit/', views.player_form_view, name='tournament_player_edit'),
     path('player/<int:player_id>/', views.player_detail, name='player_detail'),
+    path('pickup-calendar/', views.pickup_calendar, name='pickup_calendar'),
+    path('api/', include(router.urls)),
 ]

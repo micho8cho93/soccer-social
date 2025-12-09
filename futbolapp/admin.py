@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django import forms
 from datetime import datetime
-from .models import League, Season, Team, Player, Matchday, Match, PlayerStatistic, LeagueStanding, Profile, Tournament, Group, TournamentMatch, TournamentPlayerStatistic, GroupStanding
+from .models import League, Season, Team, Player, Matchday, Match, PlayerStatistic, LeagueStanding, Profile, Tournament, Group, TournamentMatch, TournamentPlayerStatistic, GroupStanding, PickupGame, PickupGamePlayer
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
 
@@ -292,3 +292,106 @@ class GroupStandingAdmin(admin.ModelAdmin):
     list_filter = ('group__tournament', 'group')
     readonly_fields = ('goal_difference',)
     ordering = ('group', 'position')
+
+from .models import Referee
+
+@admin.register(Referee)
+class RefereeAdmin(admin.ModelAdmin):
+    list_display = ('name', 'username')
+    search_fields = ('name', 'username')
+
+# ====================
+# PICKUP GAMES ADMIN
+# ====================
+
+class PickupGamePlayerInline(admin.TabularInline):
+    model = PickupGamePlayer
+    extra = 0
+    fields = ('first_name', 'last_name', 'email', 'phone_number', 'age')
+    verbose_name = 'Player'
+    verbose_name_plural = 'Registered Players'
+    readonly_fields = ()  # Allow editing of all fields
+
+@admin.register(PickupGame)
+class PickupGameAdmin(admin.ModelAdmin):
+    list_display = ('get_game_title', 'get_formatted_time', 'location', 'current_players', 'max_players', 'price', 'is_active')
+    list_filter = ('is_active', 'location')
+    search_fields = ('location',)
+    date_hierarchy = 'time'
+    inlines = [PickupGamePlayerInline]
+    
+    fieldsets = (
+        ('Game Information', {
+            'fields': ('location', 'time', 'price')
+        }),
+        ('Players', {
+            'fields': ('max_players', 'current_players'),
+            'description': 'Maximum players allowed and current registered players. Registered players are listed below.'
+        }),
+        ('Settings', {
+            'fields': ('is_active',)
+        }),
+    )
+    
+    readonly_fields = ('current_players',)
+    
+    def get_game_title(self, obj):
+        """Generate a title for the game based on location and date"""
+        return f"Pickup Game - {obj.location}"
+    get_game_title.short_description = 'Game'
+    get_game_title.admin_order_field = 'location'
+    
+    def get_formatted_time(self, obj):
+        """Display formatted date and time"""
+        return obj.time.strftime('%A, %B %d, %Y at %I:%M %p')
+    get_formatted_time.short_description = 'Date & Time'
+    get_formatted_time.admin_order_field = 'time'
+    
+    def get_queryset(self, request):
+        """Optimize queryset"""
+        qs = super().get_queryset(request)
+        return qs.prefetch_related('players').order_by('-time')
+    
+    def save_formset(self, request, form, formset, change):
+        """Override to update current_players count after saving inline players"""
+        super().save_formset(request, form, formset, change)
+        # Update current_players count after formset is saved
+        if form.instance.pk:
+            form.instance.current_players = form.instance.players.count()
+            form.instance.save()
+    
+    actions = ['activate_games', 'deactivate_games']
+    
+    def activate_games(self, request, queryset):
+        """Bulk activate selected games"""
+        updated = queryset.update(is_active=True)
+        self.message_user(request, f'{updated} game(s) successfully activated.')
+    activate_games.short_description = 'Activate selected games'
+    
+    def deactivate_games(self, request, queryset):
+        """Bulk deactivate selected games"""
+        updated = queryset.update(is_active=False)
+        self.message_user(request, f'{updated} game(s) successfully deactivated.')
+    deactivate_games.short_description = 'Deactivate selected games'
+
+@admin.register(PickupGamePlayer)
+class PickupGamePlayerAdmin(admin.ModelAdmin):
+    list_display = ('first_name', 'last_name', 'email', 'phone_number', 'age', 'pickup_game')
+    list_filter = ('pickup_game',)
+    search_fields = ('first_name', 'last_name', 'email', 'phone_number')
+    readonly_fields = ()
+    
+    def save_model(self, request, obj, form, change):
+        """Update current_players count when player is saved"""
+        super().save_model(request, obj, form, change)
+        if obj.pickup_game:
+            obj.pickup_game.current_players = obj.pickup_game.players.count()
+            obj.pickup_game.save()
+    
+    def delete_model(self, request, obj):
+        """Update current_players count when player is deleted"""
+        pickup_game = obj.pickup_game
+        super().delete_model(request, obj)
+        if pickup_game:
+            pickup_game.current_players = pickup_game.players.count()
+            pickup_game.save()
