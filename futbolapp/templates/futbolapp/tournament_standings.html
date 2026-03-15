@@ -1,70 +1,79 @@
-{% extends 'base.html' %}
+{% extends 'competition_base.html' %}
+
+{% block title %}Tournament Standings | {{ tournament.name }}{% endblock %}
 
 {% block content %}
-    <h1 class="text-3xl font-bold mb-6 text-center">Standings for {{ tournament.name }} - Season {{ season.year }}</h1>
-    <nav class="mb-6 p-4 bg-white rounded-lg shadow-md border border-gray-200">
-        <ul class="flex flex-wrap justify-center space-x-4">
-            {% if active_tab != 'home' %}
-                <li><a href="{% if public_viewer %}{% url 'public_tournament_home' tournament.id season.id %}{% else %}{% url 'tournament_home' tournament.id season.id %}{% endif %}" class="text-primary-blue hover:text-primary-red font-semibold">Home</a></li>
-            {% endif %}
-            {% if active_tab != 'teams' %}
-                {% if not public_viewer %}
-                <li><a href="{% url 'tournament_teams' tournament.id season.id %}" class="text-primary-blue hover:text-primary-red font-semibold">Teams</a></li>
-                {% endif %}
-            {% endif %}
-            {% if active_tab != 'matchdays' %}
-                {% if not public_viewer %}
-                <li><a href="{% url 'tournament_matchdays' tournament.id season.id %}" class="text-primary-blue hover:text-primary-red font-semibold">Matchdays</a></li>
-                {% endif %}
-            {% endif %}
-            {% if active_tab != 'standings' %}
-                <li><a href="{% if public_viewer %}{% url 'public_tournament_standings' tournament.id season.id %}{% else %}{% url 'tournament_standings' tournament.id season.id %}{% endif %}" class="text-primary-blue hover:text-primary-red font-semibold">Standings</a></li>
-            {% endif %}
-            {% if active_tab != 'leaderboard' %}
-                <li><a href="{% if public_viewer %}{% url 'public_tournament_leaderboard' tournament.id season.id %}{% else %}{% url 'tournament_leaderboard' tournament.id season.id %}{% endif %}" class="text-primary-blue hover:text-primary-red font-semibold">Leaderboard</a></li>
-            {% endif %}
-        </ul>
-    </nav>
-
-    <div class="bg-white p-6 rounded-lg shadow-md border border-gray-200 space-y-8">
-        {% for group_data in group_standings_data %}
-            <h2 class="text-2xl font-semibold mb-4">Group {{ group_data.group.name }}</h2>
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Team</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Matches Played</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Wins</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Draws</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Losses</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Goals For</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Goals Against</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Goal Difference</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Points</th>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
-                        {% for standing in group_data.standings %}
-                            <tr>
-                                <td class="px-6 py-4 whitespace-nowrap">{{ standing.position }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">{{ standing.team.name }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">{{ standing.matches_played }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">{{ standing.wins }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">{{ standing.draws }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">{{ standing.losses }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">{{ standing.goals_for }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">{{ standing.goals_against }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">{{ standing.goal_difference }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">{{ standing.points }}</td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+    <div class="space-y-6">
+        <section class="competition-hero lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end lg:gap-8">
+            <div class="relative z-10 space-y-4">
+                <p class="competition-kicker">Tournament Standings</p>
+                <h1 class="competition-title">{{ tournament.name }}</h1>
+                <p class="competition-subtitle">
+                    Follow every group table in the {{ season.year }} tournament with better spacing, stronger contrast, and clearer group breaks.
+                </p>
             </div>
-        {% empty %}
-            <p class="text-gray-700">No groups found for this tournament.</p>
-        {% endfor %}
+            <div class="competition-meta relative z-10">
+                <span class="competition-badge">{{ group_standings_data|length }} Groups</span>
+                <span class="competition-badge competition-badge-accent">Season {{ season.year }}</span>
+            </div>
+        </section>
+
+        {% include 'futbolapp/includes/competition_tournament_nav.html' with active_tab='standings' %}
+
+        <section class="space-y-6">
+            {% for group_data in group_standings_data %}
+                <article class="competition-panel p-4 sm:p-6">
+                    <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <p class="competition-kicker">Group Stage</p>
+                            <h2 class="competition-section-heading">Group {{ group_data.group.name }}</h2>
+                        </div>
+                        <span class="competition-badge">{{ group_data.standings|length }} Teams</span>
+                    </div>
+                    <div class="competition-table-wrap">
+                        <table class="competition-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Pos</th>
+                                    <th scope="col">Team</th>
+                                    <th scope="col">MP</th>
+                                    <th scope="col">W</th>
+                                    <th scope="col">D</th>
+                                    <th scope="col">L</th>
+                                    <th scope="col">GF</th>
+                                    <th scope="col">GA</th>
+                                    <th scope="col">GD</th>
+                                    <th scope="col">Pts</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for standing in group_data.standings %}
+                                    <tr class="{% if forloop.counter == 1 %}competition-table-row-top{% elif forloop.counter <= 3 %}competition-table-row-strong{% endif %}">
+                                        <td class="font-display text-3xl text-grass-green">{{ standing.position }}</td>
+                                        <td class="font-semibold text-ink whitespace-nowrap">{{ standing.team.name }}</td>
+                                        <td>{{ standing.matches_played }}</td>
+                                        <td>{{ standing.wins }}</td>
+                                        <td>{{ standing.draws }}</td>
+                                        <td>{{ standing.losses }}</td>
+                                        <td>{{ standing.goals_for }}</td>
+                                        <td>{{ standing.goals_against }}</td>
+                                        <td>{{ standing.goal_difference }}</td>
+                                        <td class="font-display text-3xl text-pitch-green">{{ standing.points }}</td>
+                                    </tr>
+                                {% empty %}
+                                    <tr>
+                                        <td colspan="10">
+                                            <div class="competition-empty m-4">No standings available for this group yet.</div>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </article>
+            {% empty %}
+                <div class="competition-empty">No groups found for this tournament.</div>
+            {% endfor %}
+        </section>
     </div>
 {% endblock %}

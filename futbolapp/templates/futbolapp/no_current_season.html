@@ -1,8 +1,21 @@
-{% extends 'base.html' %}
+{% extends 'competition_base.html' %}
+
+{% block title %}No Current Season | {{ league.name }}{% endblock %}
 
 {% block content %}
-    <h1 class="text-3xl font-bold mb-6 text-center">No Current Season for {{ league.name }}</h1>
-    <div class="bg-white p-6 rounded-lg shadow-md border border-gray-200 text-center">
-        <p class="text-gray-700">There is no current season set for this league. Please set a current season in the admin panel.</p>
+    <div class="space-y-6">
+        <section class="competition-hero">
+            <div class="relative z-10 space-y-4">
+                <p class="competition-kicker">Season Setup</p>
+                <h1 class="competition-title">{{ league.name }}</h1>
+                <p class="competition-subtitle">
+                    There is no current season set for this league yet. Update it in the admin area to unlock the competition pages.
+                </p>
+            </div>
+        </section>
+
+        <div class="competition-empty">
+            No current season is configured for {{ league.name }}. Please set a current season in the admin panel.
+        </div>
     </div>
 {% endblock %}

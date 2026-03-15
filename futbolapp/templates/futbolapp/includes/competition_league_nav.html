@@ -1,0 +1,33 @@
+<nav class="competition-nav" data-nav="league">
+    {% if active_tab == 'home' %}
+        <span class="competition-nav-link-active" data-nav-item="home" aria-current="page">Home</span>
+    {% else %}
+        <a href="{% if public_viewer %}{% url 'public_league_home' league.id season.id %}{% else %}{% url 'league_home' league.id season.id %}{% endif %}" class="competition-nav-link" data-nav-item="home">Home</a>
+    {% endif %}
+
+    {% if not public_viewer %}
+        {% if active_tab == 'teams' %}
+            <span class="competition-nav-link-active" data-nav-item="teams" aria-current="page">Teams</span>
+        {% else %}
+            <a href="{% url 'team_list' league.id season.id %}" class="competition-nav-link" data-nav-item="teams">Teams</a>
+        {% endif %}
+
+        {% if active_tab == 'matchdays' %}
+            <span class="competition-nav-link-active" data-nav-item="matchdays" aria-current="page">Matchdays</span>
+        {% else %}
+            <a href="{% url 'league_matchday_list' league.id season.id %}" class="competition-nav-link" data-nav-item="matchdays">Matchdays</a>
+        {% endif %}
+    {% endif %}
+
+    {% if active_tab == 'standings' %}
+        <span class="competition-nav-link-active" data-nav-item="standings" aria-current="page">Standings</span>
+    {% else %}
+        <a href="{% if public_viewer %}{% url 'public_league_standings_view' league.id season.id %}{% else %}{% url 'league_standings_view' league.id season.id %}{% endif %}" class="competition-nav-link" data-nav-item="standings">Standings</a>
+    {% endif %}
+
+    {% if active_tab == 'leaderboard' %}
+        <span class="competition-nav-link-active" data-nav-item="leaderboard" aria-current="page">Leaderboard</span>
+    {% else %}
+        <a href="{% if public_viewer %}{% url 'public_leaderboard_view' league.id season.id %}{% else %}{% url 'leaderboard_view' league.id season.id %}{% endif %}" class="competition-nav-link" data-nav-item="leaderboard">Leaderboard</a>
+    {% endif %}
+</nav>

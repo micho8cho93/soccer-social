@@ -1,50 +1,67 @@
-{% extends 'base.html' %}
+{% extends 'competition_base.html' %}
+
+{% block title %}Matchday {{ matchday.number }} | {{ matchday.season.league.name }}{% endblock %}
 
 {% block content %}
-    <h1 class="text-3xl font-bold mb-2 text-center">Match Day {{ matchday.number }} - {{ matchday.date }}</h1>
-    <div class="flex justify-center gap-4 items-center mb-4">
-        <div>
-            {% if prev_matchday %}
-                <a href="{% url 'matchday_detail' prev_matchday.id %}" class="text-2xl font-bold">&lt;</a>
-            {% endif %}
-        </div>
-        <div>
-            {% if next_matchday %}
-                <a href="{% url 'matchday_detail' next_matchday.id %}" class="text-2xl font-bold">&gt;</a>
-            {% endif %}
-        </div>
-    </div>
-    <div class="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-        <h2 class="text-2xl font-semibold mb-4">Matches</h2>
-        <ul class="space-y-4">
-            {% for match in matches %}
-                <li class="p-4 bg-gray-50 rounded-md border border-gray-200">
-                    <p class="text-lg font-medium">{{ match.home_team.name }} vs {{ match.away_team.name }} - {{ match.date|date:"H:i" }}</p>
-                    <p class="text-gray-700">Score: {{ match.home_score|default_if_none:"-" }} - {{ match.away_score|default_if_none:"-" }}</p>
-                    <div class="mt-2 flex space-x-4">
-                        {% if match.home_score is not None and match.away_score is not None %}
-                            <a href="{% url 'match_statistics' match.id %}" class="text-primary-blue hover:text-primary-red font-semibold">Stats</a>
-                        {% endif %}
-                        <a href="{% url 'match_roster_view' match.id %}" class="text-primary-blue hover:text-primary-red font-semibold">Roster</a>
+    <div class="space-y-6">
+        {% include 'futbolapp/includes/competition_league_nav.html' with league=matchday.season.league season=matchday.season active_tab='matchdays' %}
 
-                        {% if user.is_authenticated %}
-                            {% if user.is_superuser or user.profile.team == match.home_team or user.profile.team == match.away_team %}
-                                {% if match.date|date:"Y-m-d H:i" > "now"|date:"Y-m-d H:i" %}
-                                    <a href="{% url 'update_roster_view' match.id %}" class="text-supporting-green hover:text-primary-red font-semibold">Update Roster</a>
+        <section class="competition-hero lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end lg:gap-8">
+            <div class="relative z-10 space-y-4">
+                <p class="competition-kicker">League Matchday</p>
+                <h1 class="competition-title">Matchday {{ matchday.number }}</h1>
+                <p class="competition-subtitle">
+                    {{ matchday.date|date:"l, F j, Y" }}. Open rosters and match stats from the full round.
+                </p>
+            </div>
+            <div class="competition-meta relative z-10">
+                <span class="competition-badge">{{ matches|length }} Matches</span>
+                <span class="competition-badge competition-badge-accent">Season {{ matchday.season.year }}</span>
+            </div>
+        </section>
+
+        <div class="flex flex-wrap gap-3">
+            {% if prev_matchday %}
+                <a href="{% url 'matchday_detail' prev_matchday.id %}" class="competition-button-secondary">Previous</a>
+            {% endif %}
+            {% if next_matchday %}
+                <a href="{% url 'matchday_detail' next_matchday.id %}" class="competition-button-secondary">Next</a>
+            {% endif %}
+        </div>
+
+        {% if matches %}
+            <section class="competition-card-grid xl:grid-cols-2">
+                {% for match in matches %}
+                    <article class="competition-action-card">
+                        <div class="space-y-3">
+                            <p class="competition-kicker">{{ match.date|date:"H:i" }}</p>
+                            <h2 class="competition-section-heading">{{ match.home_team.name }} vs {{ match.away_team.name }}</h2>
+                            <p class="text-sm leading-relaxed text-ink/70">
+                                Score: {{ match.home_score|default_if_none:"-" }} - {{ match.away_score|default_if_none:"-" }}
+                            </p>
+                            <div class="flex flex-wrap gap-4 pt-2 text-sm font-semibold uppercase tracking-[0.24em]">
+                                {% if match.home_score is not None and match.away_score is not None %}
+                                    <a href="{% url 'match_statistics' match.id %}" class="text-grass-green hover:text-pitch-green">Stats</a>
                                 {% endif %}
-                            {% endif %}
-                        {% endif %}
-                    </div>
-                </li>
-            {% empty %}
-                <li class="text-gray-700">No matches scheduled for this day.</li>
-            {% endfor %}
-        </ul>
-        <div class="mt-6 text-center">
-            <a href="{% url 'league_matchday_list' matchday.season.league.id matchday.season.id %}" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded inline-flex items-center">
-                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
-                Back to Matchdays
-            </a>
+                                <a href="{% url 'match_roster_view' match.id %}" class="text-grass-green hover:text-pitch-green">Roster</a>
+                                {% if user.is_authenticated %}
+                                    {% if user.is_superuser or user.profile.team == match.home_team or user.profile.team == match.away_team %}
+                                        {% if match.date|date:"Y-m-d H:i" > "now"|date:"Y-m-d H:i" %}
+                                            <a href="{% url 'update_roster_view' match.id %}" class="text-goal-yellow hover:text-pitch-green">Update Roster</a>
+                                        {% endif %}
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                        </div>
+                    </article>
+                {% endfor %}
+            </section>
+        {% else %}
+            <div class="competition-empty">No matches scheduled for this day.</div>
+        {% endif %}
+
+        <div>
+            <a href="{% url 'league_matchday_list' matchday.season.league.id matchday.season.id %}" class="competition-back-link">Back To Matchdays</a>
         </div>
     </div>
 {% endblock %}

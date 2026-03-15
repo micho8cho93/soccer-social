@@ -1,0 +1,55 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Liga Soccer Social{% endblock %}</title>
+    <link rel="icon" type="image/jpeg" href="{% static 'images/soccer_social.JPG' %}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Antonio:wght@300;400;500;700&family=Bebas+Neue&display=swap" rel="stylesheet">
+    <link href="{% static 'css/output.css' %}" rel="stylesheet">
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="competition-shell" data-ui="competition-shell" data-view="{% if public_viewer %}public{% else %}private{% endif %}">
+    <div class="relative z-10 flex min-h-screen flex-col">
+        <header class="competition-topbar">
+            <div class="competition-container flex flex-col gap-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <a href="{% if public_viewer %}{% url 'public_league_selection' %}{% else %}{% url 'league_selection' %}{% endif %}" class="competition-brand">
+                        Liga Soccer Social
+                    </a>
+                    <p class="text-sm uppercase tracking-[0.32em] text-ink/55">
+                        League and tournament hub
+                    </p>
+                </div>
+                <div class="flex flex-wrap items-center gap-3">
+                    <a href="{% url 'landing_page' %}" class="competition-button-ghost">Landing</a>
+                    {% if public_viewer %}
+                        <a href="{% url 'login' %}" class="competition-button-secondary">Login</a>
+                    {% elif user.is_authenticated %}
+                        <form action="{% url 'logout' %}" method="post" class="inline">
+                            {% csrf_token %}
+                            <button type="submit" class="competition-button-secondary">Logout</button>
+                        </form>
+                    {% endif %}
+                </div>
+            </div>
+        </header>
+
+        <main class="flex-1 py-8 sm:py-10">
+            <div class="competition-container">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+
+        <footer class="border-t border-line-gray/70 bg-white/70 py-6 backdrop-blur-sm">
+            <div class="competition-container flex flex-col gap-2 text-sm text-ink/60 sm:flex-row sm:items-center sm:justify-between">
+                <p>Soccer Social competitions, standings, and matchdays.</p>
+                <p>© {% now "Y" %} Liga Soccer Social</p>
+            </div>
+        </footer>
+    </div>
+</body>
+</html>

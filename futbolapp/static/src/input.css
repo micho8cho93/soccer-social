@@ -1,3 +1,287 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  .competition-shell {
+    font-family: 'Antonio', sans-serif;
+    min-height: 100vh;
+    position: relative;
+    isolation: isolate;
+    color: #0F3A2A;
+    background:
+      radial-gradient(circle at top left, rgba(255, 184, 0, 0.16), transparent 25%),
+      radial-gradient(circle at right 15% top 10%, rgba(10, 135, 84, 0.14), transparent 22%),
+      linear-gradient(180deg, #fbfdf8 0%, #f5faf4 48%, #ffffff 100%);
+  }
+
+  .competition-shell::before,
+  .competition-shell::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  .competition-shell::before {
+    opacity: 0.35;
+    background-image:
+      linear-gradient(rgba(26, 92, 62, 0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(26, 92, 62, 0.06) 1px, transparent 1px);
+    background-size: 72px 72px;
+    mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.55), transparent 80%);
+  }
+
+  .competition-shell::after {
+    inset: auto 8% 6% auto;
+    width: 18rem;
+    height: 18rem;
+    border-radius: 9999px;
+    background: radial-gradient(circle, rgba(255, 184, 0, 0.18), transparent 68%);
+    filter: blur(10px);
+  }
+
+  .competition-shell a,
+  .competition-shell button,
+  .competition-shell input,
+  .competition-shell select,
+  .competition-shell textarea {
+    transition:
+      color 160ms ease,
+      background-color 160ms ease,
+      border-color 160ms ease,
+      box-shadow 160ms ease,
+      transform 160ms ease;
+  }
+
+  .competition-shell input[type='text'],
+  .competition-shell input[type='password'],
+  .competition-shell input[type='email'],
+  .competition-shell input[type='number'],
+  .competition-shell input[type='date'],
+  .competition-shell input[type='datetime-local'],
+  .competition-shell select,
+  .competition-shell textarea {
+    width: 100%;
+    border-radius: 1rem;
+    border: 1px solid #D7E0D8;
+    background: rgba(255, 255, 255, 0.94);
+    padding: 0.875rem 1rem;
+    color: #0F3A2A;
+    box-shadow: inset 0 1px 2px rgba(15, 58, 42, 0.04);
+  }
+
+  .competition-shell textarea {
+    min-height: 8rem;
+    resize: vertical;
+  }
+
+  .competition-shell input[type='text']:focus,
+  .competition-shell input[type='password']:focus,
+  .competition-shell input[type='email']:focus,
+  .competition-shell input[type='number']:focus,
+  .competition-shell input[type='date']:focus,
+  .competition-shell input[type='datetime-local']:focus,
+  .competition-shell select:focus,
+  .competition-shell textarea:focus {
+    outline: none;
+    border-color: #0A8754;
+    box-shadow: 0 0 0 4px rgba(10, 135, 84, 0.14);
+  }
+
+  .competition-shell input[type='checkbox'],
+  .competition-shell input[type='radio'] {
+    accent-color: #0A8754;
+  }
+}
+
+@layer components {
+  .competition-container {
+    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+  }
+
+  .competition-topbar {
+    @apply sticky top-0 z-30 border-b border-line-gray/70 bg-white/85 backdrop-blur-xl;
+  }
+
+  .competition-brand {
+    @apply font-display text-3xl uppercase tracking-wider text-pitch-green;
+  }
+
+  .competition-kicker {
+    @apply font-display text-lg uppercase tracking-widest text-grass-green;
+  }
+
+  .competition-title {
+    @apply font-display text-5xl uppercase leading-none text-ink sm:text-6xl lg:text-7xl;
+    letter-spacing: 0.04em;
+  }
+
+  .competition-subtitle {
+    @apply max-w-3xl text-base text-ink/75 sm:text-lg;
+  }
+
+  .competition-badge {
+    @apply inline-flex items-center rounded-full border border-line-gray bg-mist px-4 py-2 text-xs font-semibold uppercase text-pitch-green;
+    letter-spacing: 0.25em;
+  }
+
+  .competition-badge-accent {
+    @apply border-goal-yellow/40 bg-soft-yellow text-pitch-green;
+  }
+
+  .competition-panel {
+    @apply rounded-3xl border border-line-gray bg-white shadow-competition;
+  }
+
+  .competition-panel-muted {
+    @apply rounded-3xl border border-line-gray bg-mist/80 shadow-competition-sm;
+  }
+
+  .competition-hero {
+    @apply competition-panel relative overflow-hidden px-6 py-7 sm:px-8 sm:py-9;
+  }
+
+  .competition-hero::after {
+    content: "";
+    position: absolute;
+    right: -5rem;
+    top: -5rem;
+    width: 14rem;
+    height: 14rem;
+    border-radius: 9999px;
+    background: radial-gradient(circle, rgba(255, 184, 0, 0.22), transparent 72%);
+  }
+
+  .competition-nav {
+    @apply competition-panel flex flex-wrap gap-3 px-4 py-4 sm:px-5;
+  }
+
+  .competition-nav-link {
+    @apply inline-flex items-center rounded-full border border-transparent bg-mist px-4 py-2 font-display text-2xl uppercase tracking-wide text-ink hover:-translate-y-0.5 hover:border-grass-green/20 hover:bg-soft-green hover:text-grass-green;
+  }
+
+  .competition-nav-link-active {
+    @apply inline-flex items-center rounded-full border border-grass-green/25 bg-grass-green px-4 py-2 font-display text-2xl uppercase tracking-wide text-white shadow-competition-sm;
+  }
+
+  .competition-button-primary {
+    @apply inline-flex items-center justify-center rounded-full bg-grass-green px-6 py-3 font-display text-2xl uppercase tracking-wide text-white shadow-competition-sm hover:-translate-y-0.5 hover:bg-pitch-green;
+  }
+
+  .competition-button-secondary {
+    @apply inline-flex items-center justify-center rounded-full border border-line-gray bg-white px-6 py-3 font-display text-2xl uppercase tracking-wide text-ink hover:-translate-y-0.5 hover:border-grass-green/25 hover:text-grass-green;
+  }
+
+  .competition-button-ghost {
+    @apply inline-flex items-center justify-center rounded-full bg-mist px-5 py-3 font-display text-2xl uppercase tracking-wide text-pitch-green hover:-translate-y-0.5 hover:bg-soft-yellow;
+  }
+
+  .competition-section-heading {
+    @apply font-display text-4xl uppercase tracking-wide text-ink;
+  }
+
+  .competition-meta {
+    @apply flex flex-wrap gap-3;
+  }
+
+  .competition-card-grid {
+    @apply grid gap-5 md:grid-cols-2 xl:grid-cols-3;
+  }
+
+  .competition-action-card {
+    @apply competition-panel-muted block h-full p-6 hover:-translate-y-1 hover:border-grass-green/25 hover:bg-white;
+  }
+
+  .competition-stat-card {
+    @apply competition-panel h-full p-6;
+  }
+
+  .competition-stat-number {
+    @apply font-display text-5xl uppercase leading-none text-grass-green;
+  }
+
+  .competition-stat-label {
+    @apply text-sm uppercase text-ink/55;
+    letter-spacing: 0.28em;
+  }
+
+  .competition-list-grid {
+    @apply grid gap-4 sm:grid-cols-2 xl:grid-cols-3;
+  }
+
+  .competition-list-link {
+    @apply competition-panel-muted block h-full p-5 hover:-translate-y-1 hover:border-grass-green/25 hover:bg-white;
+  }
+
+  .competition-table-wrap {
+    @apply overflow-x-auto rounded-3xl border border-line-gray bg-white;
+  }
+
+  .competition-table {
+    @apply min-w-full border-collapse;
+  }
+
+  .competition-table thead {
+    @apply bg-mist;
+  }
+
+  .competition-table th {
+    @apply px-4 py-3 text-left text-xs font-semibold uppercase text-ink/55;
+    letter-spacing: 0.28em;
+  }
+
+  .competition-table td {
+    @apply px-4 py-4 text-sm text-ink/85;
+  }
+
+  .competition-table tbody tr {
+    @apply border-t border-line-gray/70;
+  }
+
+  .competition-table tbody tr:nth-child(even) {
+    background: rgba(244, 247, 243, 0.55);
+  }
+
+  .competition-table-row-top {
+    background: linear-gradient(90deg, rgba(255, 184, 0, 0.18), rgba(255, 255, 255, 0.82)) !important;
+  }
+
+  .competition-table-row-strong {
+    background: linear-gradient(90deg, rgba(10, 135, 84, 0.08), rgba(255, 255, 255, 0.82)) !important;
+  }
+
+  .competition-empty {
+    @apply competition-panel-muted p-8 text-center text-ink/70;
+  }
+
+  .competition-back-link {
+    @apply inline-flex items-center gap-2 rounded-full border border-line-gray bg-white px-5 py-3 font-display text-2xl uppercase tracking-wide text-ink hover:-translate-y-0.5 hover:border-grass-green/20 hover:text-grass-green;
+  }
+
+  .competition-form-grid {
+    @apply grid gap-5 md:grid-cols-2;
+  }
+
+  .competition-field {
+    @apply space-y-2;
+  }
+
+  .competition-field-label {
+    @apply text-sm font-semibold uppercase text-ink/65;
+    letter-spacing: 0.28em;
+  }
+
+  .competition-checkbox-grid {
+    @apply grid gap-3 sm:grid-cols-2 xl:grid-cols-3;
+  }
+
+  .competition-checkbox-item {
+    @apply flex items-center gap-3 rounded-2xl border border-line-gray bg-white px-4 py-3 text-sm text-ink shadow-sm;
+  }
+
+  .competition-prose {
+    @apply space-y-3 text-base leading-relaxed text-ink/75;
+  }
+}

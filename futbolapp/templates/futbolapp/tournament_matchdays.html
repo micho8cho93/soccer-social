@@ -1,34 +1,37 @@
-{% extends 'base.html' %}
+{% extends 'competition_base.html' %}
+
+{% block title %}Tournament Matchdays | {{ tournament.name }}{% endblock %}
 
 {% block content %}
-    <h1 class="text-3xl font-bold mb-6 text-center">Tournament Match Days for {{ tournament.name }} - Season {{ season.year }}</h1>
-    <nav class="mb-6 p-4 bg-white rounded-lg shadow-md border border-gray-200">
-        <ul class="flex flex-wrap justify-center space-x-4">
-            {% if active_tab != 'home' %}
-                <li><a href="{% url 'tournament_home' tournament.id season.id %}" class="text-primary-blue hover:text-primary-red font-semibold">Home</a></li>
-            {% endif %}
-            {% if active_tab != 'teams' %}
-                <li><a href="{% url 'tournament_teams' tournament.id season.id %}" class="text-primary-blue hover:text-primary-red font-semibold">Teams</a></li>
-            {% endif %}
-            {% if active_tab != 'standings' %}
-                <li><a href="{% url 'tournament_standings' tournament.id season.id %}" class="text-primary-blue hover:text-primary-red font-semibold">Standings</a></li>
-            {% endif %}
-            {% if active_tab != 'leaderboard' %}
-                <li><a href="{% url 'tournament_leaderboard' tournament.id season.id %}" class="text-primary-blue hover:text-primary-red font-semibold">Leaderboard</a></li>
-            {% endif %}
-        </ul>
-    </nav>
-    <div class="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-        <ul class="space-y-2">
-            {% for date in unique_dates %}
-                <li>
-                    <a href="{% url 'tournament_matchday_detail_by_date' tournament.id season.id date.year date.month date.day %}" class="block p-3 bg-gray-50 hover:bg-gray-100 rounded-md border border-gray-200 text-primary-blue font-medium">
-                        {{ date|date:"l, F j, Y" }}
+    <div class="space-y-6">
+        <section class="competition-hero lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end lg:gap-8">
+            <div class="relative z-10 space-y-4">
+                <p class="competition-kicker">Tournament Schedule</p>
+                <h1 class="competition-title">{{ tournament.name }}</h1>
+                <p class="competition-subtitle">
+                    Open every tournament date to see match cards, scores, and player statistics for the {{ season.year }} event.
+                </p>
+            </div>
+            <div class="competition-meta relative z-10">
+                <span class="competition-badge">{{ unique_dates|length }} Dates</span>
+                <span class="competition-badge competition-badge-accent">Season {{ season.year }}</span>
+            </div>
+        </section>
+
+        {% include 'futbolapp/includes/competition_tournament_nav.html' with active_tab='matchdays' %}
+
+        {% if unique_dates %}
+            <section class="competition-list-grid">
+                {% for date in unique_dates %}
+                    <a href="{% url 'tournament_matchday_detail_by_date' tournament.id season.id date.year date.month date.day %}" class="competition-list-link">
+                        <p class="competition-kicker">Matchday</p>
+                        <h2 class="competition-section-heading">{{ date|date:"M j" }}</h2>
+                        <p class="mt-3 text-sm leading-relaxed text-ink/70">{{ date|date:"l, F j, Y" }}</p>
                     </a>
-                </li>
-            {% empty %}
-                <li class="text-gray-700">No tournament match days found for this season.</li>
-            {% endfor %}
-        </ul>
+                {% endfor %}
+            </section>
+        {% else %}
+            <div class="competition-empty">No matchdays found for this tournament.</div>
+        {% endif %}
     </div>
 {% endblock %}

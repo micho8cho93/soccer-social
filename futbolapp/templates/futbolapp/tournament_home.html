@@ -1,34 +1,51 @@
-{% extends 'base.html' %}
+{% extends 'competition_base.html' %}
+
+{% block title %}{{ tournament.name }} | Season {{ season.year }}{% endblock %}
 
 {% block content %}
-    <h1 class="text-3xl font-bold mb-6 text-center">{{ tournament.name }} - Season {{ season.year }}</h1>
+    <div class="space-y-6">
+        <section class="competition-hero lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end lg:gap-8">
+            <div class="relative z-10 space-y-4">
+                <p class="competition-kicker">Tournament Overview</p>
+                <h1 class="competition-title">{{ tournament.name }}</h1>
+                <p class="competition-subtitle">
+                    Navigate group standings, tournament leaders, teams, and matchdays from one refined competition hub.
+                </p>
+            </div>
+            <div class="competition-meta relative z-10">
+                <span class="competition-badge">Season {{ season.year }}</span>
+                <span class="competition-badge competition-badge-accent">{% if public_viewer %}Public Stats{% else %}Tournament Ops{% endif %}</span>
+            </div>
+        </section>
 
-    <nav class="mb-6 p-4 bg-white rounded-lg shadow-md border border-gray-200">
-        <ul class="flex flex-wrap justify-center space-x-4">
-            {% if active_tab != 'home' %}
-                <li><a href="{% if public_viewer %}{% url 'public_tournament_home' tournament.id season.id %}{% else %}{% url 'tournament_home' tournament.id season.id %}{% endif %}" class="text-primary-blue hover:text-primary-red font-semibold">Home</a></li>
-            {% endif %}
-            {% if active_tab != 'teams' %}
-                {% if not public_viewer %}
-                <li><a href="{% url 'tournament_teams' tournament.id season.id %}" class="text-primary-blue hover:text-primary-red font-semibold">Teams</a></li>
-                {% endif %}
-            {% endif %}
-            {% if active_tab != 'matchdays' %}
-                {% if not public_viewer %}
-                <li><a href="{% url 'tournament_matchdays' tournament.id season.id %}" class="text-primary-blue hover:text-primary-red font-semibold">Matchdays</a></li>
-                {% endif %}
-            {% endif %}
-            {% if active_tab != 'standings' %}
-                <li><a href="{% if public_viewer %}{% url 'public_tournament_standings' tournament.id season.id %}{% else %}{% url 'tournament_standings' tournament.id season.id %}{% endif %}" class="text-primary-blue hover:text-primary-red font-semibold">Standings</a></li>
-            {% endif %}
-            {% if active_tab != 'leaderboard' %}
-                <li><a href="{% if public_viewer %}{% url 'public_tournament_leaderboard' tournament.id season.id %}{% else %}{% url 'tournament_leaderboard' tournament.id season.id %}{% endif %}" class="text-primary-blue hover:text-primary-red font-semibold">Leaderboard</a></li>
-            {% endif %}
-        </ul>
-    </nav>
+        {% include 'futbolapp/includes/competition_tournament_nav.html' with active_tab='home' %}
 
-    <div class="bg-white p-6 rounded-lg shadow-md border border-gray-200 text-center">
-        <h2 class="text-2xl font-semibold mb-4">Welcome to the {{ tournament.name }} page for {{ season.year }}!</h2>
-        <p class="text-gray-700">Use the navigation above to explore teams, matchdays, standings, and leaderboards for this tournament.</p>
+        <section class="competition-card-grid lg:grid-cols-3">
+            <a href="{% if public_viewer %}{% url 'public_tournament_standings' tournament.id season.id %}{% else %}{% url 'tournament_standings' tournament.id season.id %}{% endif %}" class="competition-action-card">
+                <p class="competition-kicker">Groups</p>
+                <h2 class="competition-section-heading">Standings</h2>
+                <p class="mt-3 text-sm leading-relaxed text-ink/70">Open each group table with a cleaner ranking view and clearer visual hierarchy.</p>
+            </a>
+
+            <a href="{% if public_viewer %}{% url 'public_tournament_leaderboard' tournament.id season.id %}{% else %}{% url 'tournament_leaderboard' tournament.id season.id %}{% endif %}" class="competition-action-card">
+                <p class="competition-kicker">Top Performers</p>
+                <h2 class="competition-section-heading">Leaderboard</h2>
+                <p class="mt-3 text-sm leading-relaxed text-ink/70">See who is leading the tournament across every major stat category.</p>
+            </a>
+
+            {% if not public_viewer %}
+                <a href="{% url 'tournament_matchdays' tournament.id season.id %}" class="competition-action-card">
+                    <p class="competition-kicker">Schedule</p>
+                    <h2 class="competition-section-heading">Matchdays</h2>
+                    <p class="mt-3 text-sm leading-relaxed text-ink/70">Browse tournament dates, open match cards, and jump into detailed stats.</p>
+                </a>
+            {% else %}
+                <article class="competition-action-card">
+                    <p class="competition-kicker">Public Access</p>
+                    <h2 class="competition-section-heading">Read-Only</h2>
+                    <p class="mt-3 text-sm leading-relaxed text-ink/70">Public visitors can keep up with the tournament table and top performers without manager-only admin flows.</p>
+                </article>
+            {% endif %}
+        </section>
     </div>
 {% endblock %}

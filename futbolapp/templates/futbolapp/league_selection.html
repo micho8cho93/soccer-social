@@ -1,59 +1,105 @@
-{% extends 'base.html' %}
+{% extends 'competition_base.html' %}
+
+{% block title %}Competition Hub | Liga Soccer Social{% endblock %}
 
 {% block content %}
-    <h1 class="text-2xl font-bold mb-4 text-center">Select a League or Tournament</h1>
-    <form method="post" id="league_season_form" class="flex flex-col items-center space-y-4">
-        {% if public_viewer %}
-            <input type="hidden" id="public_viewer_flag" value="true">
-        {% endif %}
-        {% csrf_token %}
-        <div class="w-full max-w-xs">
-            <label for="type_select" class="block text-gray-700 text-sm font-bold mb-2">Type:</label>
-            <select name="type" id="type_select" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
-                <option value="">-- Select Type --</option>
-                <option value="league" selected>League</option>
-                <option value="tournament">Tournament</option>
-            </select>
-        </div>
+    <div class="space-y-8">
+        <section class="competition-hero lg:grid lg:grid-cols-[minmax(0,1.2fr)_minmax(20rem,0.95fr)] lg:items-start lg:gap-8">
+            <div class="relative z-10 space-y-6">
+                <div class="competition-meta">
+                    <span class="competition-badge">{% if public_viewer %}Public Stats{% else %}Competition Manager{% endif %}</span>
+                    <span class="competition-badge competition-badge-accent">League + Tournament</span>
+                </div>
+                <div class="space-y-4">
+                    <p class="competition-kicker">Competition Hub</p>
+                    <h1 class="competition-title">Choose Your Season</h1>
+                    <p class="competition-subtitle">
+                        Explore standings, matchdays, and leaderboards with the same modern matchday-inspired design language as the landing page.
+                    </p>
+                </div>
 
-        <div class="w-full max-w-xs" id="league_select_div" style="display: none;">
-            <label for="league_select" class="block text-gray-700 text-sm font-bold mb-2">League:</label>
-            <select name="league" id="league_select" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
-                <option value="">-- Please choose a league --</option>
-                {% for league in leagues %}
-                    <option value="{{ league.id }}">{{ league.name }}</option>
-                {% endfor %}
-            </select>
-        </div>
+                <div class="competition-card-grid md:grid-cols-2 xl:grid-cols-2">
+                    <article class="competition-action-card">
+                        <p class="competition-kicker">Follow the table</p>
+                        <h2 class="competition-section-heading">Standings</h2>
+                        <p class="mt-3 text-sm leading-relaxed text-ink/70">
+                            Jump into current league tables or tournament groups with cleaner rankings and easier scanning.
+                        </p>
+                    </article>
+                    <article class="competition-action-card">
+                        <p class="competition-kicker">Track form</p>
+                        <h2 class="competition-section-heading">Leaderboards</h2>
+                        <p class="mt-3 text-sm leading-relaxed text-ink/70">
+                            Compare goals, assists, clean sheets, and discipline leaders without digging through dense lists.
+                        </p>
+                    </article>
+                </div>
+            </div>
 
-        <div class="w-full max-w-xs" id="tournament_select_div" style="display: none;">
-            <label for="tournament_select" class="block text-gray-700 text-sm font-bold mb-2">Tournament:</label>
-            <select name="tournament" id="tournament_select" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
-                <option value="">-- Please choose a tournament --</option>
-                {% for season_obj in tournament_seasons %}
-                    <option value="{{ season_obj.tournament.id }}" data-season-id="{{ season_obj.id }}">{{ season_obj.tournament.name }} ({{ season_obj.year }})</option>
-                {% endfor %}
-            </select>
-        </div>
+            <div class="competition-panel relative z-10 p-6 sm:p-8">
+                <div class="mb-6 space-y-2">
+                    <p class="competition-kicker">Start Here</p>
+                    <h2 class="competition-section-heading">Select A Competition</h2>
+                    <p class="text-sm leading-relaxed text-ink/70">
+                        Pick a league or tournament, then choose the season you want to browse.
+                    </p>
+                </div>
 
-        <div class="w-full max-w-xs">
-            <label for="season_select" class="block text-gray-700 text-sm font-bold mb-2">Season:</label>
-            <select name="season" id="season_select" disabled class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
-                <option value="">-- Select a league/tournament first --</option>
-            </select>
-        </div>
+                <form method="post" id="league_season_form" class="space-y-5">
+                    {% if public_viewer %}
+                        <input type="hidden" id="public_viewer_flag" value="true">
+                    {% endif %}
+                    {% csrf_token %}
 
-        <button type="submit" id="submit_button" disabled class="bg-primary-blue hover:bg-primary-red text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline border border-primary-blue">
-            Go
-        </button>
-        {% if public_viewer %}
-        <div class="mt-4 text-center">
-            <a href="{% url 'login' %}" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded inline-flex items-center">
-                Login
-            </a>
-        </div>
-        {% endif %}
-    </form>
+                    <div class="competition-field">
+                        <label for="type_select" class="competition-field-label">Type</label>
+                        <select name="type" id="type_select">
+                            <option value="">-- Select Type --</option>
+                            <option value="league" selected>League</option>
+                            <option value="tournament">Tournament</option>
+                        </select>
+                    </div>
+
+                    <div class="competition-field" id="league_select_div" style="display: none;">
+                        <label for="league_select" class="competition-field-label">League</label>
+                        <select name="league" id="league_select">
+                            <option value="">-- Please choose a league --</option>
+                            {% for league in leagues %}
+                                <option value="{{ league.id }}">{{ league.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="competition-field" id="tournament_select_div" style="display: none;">
+                        <label for="tournament_select" class="competition-field-label">Tournament</label>
+                        <select name="tournament" id="tournament_select">
+                            <option value="">-- Please choose a tournament --</option>
+                            {% for season_obj in tournament_seasons %}
+                                <option value="{{ season_obj.tournament.id }}" data-season-id="{{ season_obj.id }}">{{ season_obj.tournament.name }} ({{ season_obj.year }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="competition-field">
+                        <label for="season_select" class="competition-field-label">Season</label>
+                        <select name="season" id="season_select" disabled>
+                            <option value="">-- Select a league/tournament first --</option>
+                        </select>
+                    </div>
+
+                    <div class="flex flex-wrap gap-3 pt-2">
+                        <button type="submit" id="submit_button" disabled class="competition-button-primary disabled:pointer-events-none disabled:opacity-40">
+                            Go
+                        </button>
+                        {% if public_viewer %}
+                            <a href="{% url 'login' %}" class="competition-button-secondary">Login</a>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+        </section>
+    </div>
+
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const typeSelect = document.getElementById('type_select');
@@ -73,7 +119,6 @@
                 submitButton.disabled = true;
                 seasonSelect.innerHTML = '<option value="">-- Select a league/tournament first --</option>';
 
-                // Reset selected values when type changes
                 leagueSelect.value = '';
                 tournamentSelect.value = '';
             };
@@ -113,13 +158,13 @@
             tournamentSelect.addEventListener('change', function() {
                 const selectedOption = this.options[this.selectedIndex];
                 const tournamentId = selectedOption.value;
-                const seasonId = selectedOption.dataset.seasonId; // Get season ID from data attribute
+                const seasonId = selectedOption.dataset.seasonId;
 
-                seasonSelect.innerHTML = ''; // Clear existing options
+                seasonSelect.innerHTML = '';
                 if (tournamentId && seasonId) {
                     const option = document.createElement('option');
                     option.value = seasonId;
-                    option.textContent = selectedOption.textContent.match(/\((\d{4})\)/)[1]; // Extract year using regex
+                    option.textContent = selectedOption.textContent.match(/\((\d{4})\)/)[1];
                     seasonSelect.appendChild(option);
                     seasonSelect.disabled = false;
                     submitButton.disabled = false;
@@ -131,12 +176,7 @@
             });
 
             seasonSelect.addEventListener('change', function() {
-                // This listener is primarily for league selection, but ensures button state for both
-                if (this.value) {
-                    submitButton.disabled = false;
-                } else {
-                    submitButton.disabled = true;
-                }
+                submitButton.disabled = !this.value;
             });
 
             form.addEventListener('submit', function(event) {
@@ -153,19 +193,16 @@
                     }
                 } else if (selectedType === 'tournament') {
                     const tournamentId = tournamentSelect.value;
-                    const seasonId = seasonSelect.value; // Now seasonSelect has the correct seasonId for tournaments
+                    const seasonId = seasonSelect.value;
                     if (tournamentId && seasonId) {
                         window.location.href = `${baseUrl}/tournament/${tournamentId}/${seasonId}/`;
                     }
                 }
             });
 
-            // Initial visibility update
             updateVisibility();
-            // Trigger change event on typeSelect to ensure correct dropdown is shown
             typeSelect.dispatchEvent(new Event('change'));
 
-            // If league is initially selected, trigger change on leagueSelect to load seasons
             if (typeSelect.value === 'league') {
                 leagueSelect.dispatchEvent(new Event('change'));
             }

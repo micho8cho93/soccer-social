@@ -18,6 +18,8 @@ class ViewTests(TestCase):
         self.team1 = Team.objects.create(name="Team A", league=self.league)
         self.team2 = Team.objects.create(name="Team B", league=self.league)
         self.matchday = Matchday.objects.create(season=self.season, number=1, date=date.today())
+        self.tournament = Tournament.objects.create(name="Champions Cup")
+        self.tournament_season = Season.objects.create(tournament=self.tournament, year=2024)
         self.utc = pytz.UTC
         self.match_time = datetime.now().replace(tzinfo=self.utc)
         self.match = Match.objects.create(
@@ -39,14 +41,43 @@ class ViewTests(TestCase):
         """Test the league home view for an authenticated user."""
         response = self.client.get(reverse('league_home', args=[self.league.id, self.season.id]))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, f"{self.league.name} - Season {self.season.year}")
+        self.assertContains(response, self.league.name)
+        self.assertContains(response, f"Season {self.season.year}")
+        self.assertContains(response, 'data-ui="competition-shell"')
+        self.assertContains(response, 'data-nav="league"')
+        self.assertContains(response, 'data-nav-item="teams"')
+        self.assertContains(response, 'data-nav-item="matchdays"')
 
     def test_public_league_home_view_unauthenticated(self):
         """Test the public league home view for an unauthenticated user."""
         self.client.logout()
         response = self.client.get(reverse('public_league_home', args=[self.league.id, self.season.id]))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, f"{self.league.name} - Season {self.season.year}")
+        self.assertContains(response, self.league.name)
+        self.assertContains(response, f"Season {self.season.year}")
+        self.assertContains(response, 'data-ui="competition-shell"')
+        self.assertContains(response, 'data-nav="league"')
+        self.assertNotContains(response, 'data-nav-item="teams"')
+        self.assertNotContains(response, 'data-nav-item="matchdays"')
+
+    def test_tournament_home_view_authenticated(self):
+        """Authenticated tournament home view should render the competition shell and private nav items."""
+        response = self.client.get(reverse('tournament_home', args=[self.tournament.id, self.tournament_season.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-ui="competition-shell"')
+        self.assertContains(response, 'data-nav="tournament"')
+        self.assertContains(response, 'data-nav-item="teams"')
+        self.assertContains(response, 'data-nav-item="matchdays"')
+
+    def test_public_tournament_home_view_unauthenticated(self):
+        """Public tournament home view should hide private tournament nav items."""
+        self.client.logout()
+        response = self.client.get(reverse('public_tournament_home', args=[self.tournament.id, self.tournament_season.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-ui="competition-shell"')
+        self.assertContains(response, 'data-nav="tournament"')
+        self.assertNotContains(response, 'data-nav-item="teams"')
+        self.assertNotContains(response, 'data-nav-item="matchdays"')
 
     def test_league_standings_view(self):
         """Test the league standings view."""
