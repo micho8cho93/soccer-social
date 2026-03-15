@@ -2,9 +2,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.core.mail import send_mail
 from django.conf import settings
-from rest_framework import viewsets, status
-from rest_framework.response import Response
-from rest_framework.exceptions import ValidationError
+from rest_framework import viewsets
 from .models import Matchday, Match, Team, Player, PlayerStatistic, LeagueStanding, Season, League, Tournament, Group, TournamentMatch, TournamentPlayerStatistic, GroupStanding, Referee, PickupGame, PickupGamePlayer
 from django.db.models import Sum, F
 from django.http import JsonResponse, HttpResponseForbidden
@@ -18,6 +16,40 @@ from django.db.models import Q
 from .serializers import PickupGameSerializer, PickupGamePlayerSerializer
 
 # Create your views here.
+
+def _build_tournament_group_standings_data(tournament):
+    groups = Group.objects.filter(tournament=tournament).order_by('name')
+    group_standings_data = []
+
+    for group in groups:
+        for team in group.teams.all():
+            GroupStanding.objects.get_or_create(
+                group=group,
+                team=team,
+                defaults={
+                    'position': 0,
+                    'points': 0,
+                    'matches_played': 0,
+                    'wins': 0,
+                    'draws': 0,
+                    'losses': 0,
+                    'goals_for': 0,
+                    'goals_against': 0,
+                    'goal_difference': 0,
+                }
+            )
+
+        GroupStanding.update_positions_for_group(group)
+        standings = GroupStanding.objects.filter(group=group).select_related('team').order_by(
+            'position',
+            '-points',
+            '-goal_difference',
+            '-goals_for',
+            'team__name',
+        )
+        group_standings_data.append({'group': group, 'standings': standings})
+
+    return group_standings_data
 
 @login_required
 def league_selection(request):
@@ -435,32 +467,7 @@ def tournament_matchday_detail_by_date(request, tournament_id, season_id, year, 
 def tournament_standings(request, tournament_id, season_id):
     tournament = get_object_or_404(Tournament, pk=tournament_id)
     season = get_object_or_404(Season, pk=season_id)
-    groups = Group.objects.filter(tournament=tournament).order_by('name')
-    
-    group_standings_data = []
-    for group in groups:
-        standings = []
-        teams_in_group = group.teams.all()
-        for team in teams_in_group:
-            standing, created = GroupStanding.objects.get_or_create(
-                group=group,
-                team=team,
-                defaults={
-                    'position': 0,
-                    'points': 0,
-                    'matches_played': 0,
-                    'wins': 0,
-                    'draws': 0,
-                    'losses': 0,
-                    'goals_for': 0,
-                    'goals_against': 0,
-                    'goal_difference': 0,
-                }
-            )
-            standings.append(standing)
-        
-        standings.sort(key=lambda x: (x.position, -x.points, -x.goal_difference, -x.goals_for))
-        group_standings_data.append({'group': group, 'standings': standings})
+    group_standings_data = _build_tournament_group_standings_data(tournament)
 
     return render(request, 'futbolapp/tournament_standings.html', {'tournament': tournament, 'season': season, 'group_standings_data': group_standings_data, 'active_tab': 'standings'})
 
@@ -623,32 +630,7 @@ def public_tournament_home(request, tournament_id, season_id):
 def public_tournament_standings(request, tournament_id, season_id):
     tournament = get_object_or_404(Tournament, pk=tournament_id)
     season = get_object_or_404(Season, pk=season_id)
-    groups = Group.objects.filter(tournament=tournament).order_by('name')
-    
-    group_standings_data = []
-    for group in groups:
-        standings = []
-        teams_in_group = group.teams.all()
-        for team in teams_in_group:
-            standing, created = GroupStanding.objects.get_or_create(
-                group=group,
-                team=team,
-                defaults={
-                    'position': 0,
-                    'points': 0,
-                    'matches_played': 0,
-                    'wins': 0,
-                    'draws': 0,
-                    'losses': 0,
-                    'goals_for': 0,
-                    'goals_against': 0,
-                    'goal_difference': 0,
-                }
-            )
-            standings.append(standing)
-        
-        standings.sort(key=lambda x: (x.position, -x.points, -x.goal_difference, -x.goals_for))
-        group_standings_data.append({'group': group, 'standings': standings})
+    group_standings_data = _build_tournament_group_standings_data(tournament)
 
     return render(request, 'futbolapp/tournament_standings.html', {'tournament': tournament, 'season': season, 'group_standings_data': group_standings_data, 'active_tab': 'standings', 'public_viewer': True})
 
@@ -758,42 +740,12 @@ def landing_page(request):
 # Pickup games
 class PickupGameViewSet(viewsets.ModelViewSet):
     # Retrieve all active pickup games
-    queryset = PickupGame.objects.filter(is_active=True).order_by('time')
+    queryset = PickupGame.objects.filter(is_active=True).prefetch_related('players').order_by('time')
     serializer_class = PickupGameSerializer
 
 class PickupGamePlayerViewSet(viewsets.ModelViewSet):
     queryset = PickupGamePlayer.objects.all()
     serializer_class = PickupGamePlayerSerializer
     
-    def create(self, request, *args, **kwargs):
-        """Override create to ensure proper error handling and data persistence."""
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        
-        # Validate that the pickup_game exists and is active
-        pickup_game_id = request.data.get('pickup_game')
-        try:
-            pickup_game = PickupGame.objects.get(id=pickup_game_id, is_active=True)
-        except PickupGame.DoesNotExist:
-            raise ValidationError({'pickup_game': 'Invalid or inactive game ID.'})
-        
-        # Create the player using perform_create which handles the count update
-        self.perform_create(serializer)
-        
-        # Return the created player with 201 status
-        headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
-    
-    def perform_create(self, serializer):
-        """Create a player and update the pickup game's current_players count."""
-        player = serializer.save()
-        pickup_game = player.pickup_game
-        pickup_game.current_players = pickup_game.players.count()
-        pickup_game.save()
-    
     def perform_destroy(self, instance):
-        """Delete a player and update the pickup game's current_players count."""
-        pickup_game = instance.pickup_game
         instance.delete()
-        pickup_game.current_players = pickup_game.players.count()
-        pickup_game.save()

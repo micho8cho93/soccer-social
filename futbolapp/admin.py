@@ -312,9 +312,15 @@ class PickupGamePlayerInline(admin.TabularInline):
     verbose_name_plural = 'Registered Players'
     readonly_fields = ()  # Allow editing of all fields
 
+    def has_add_permission(self, request, obj=None):
+        has_permission = super().has_add_permission(request, obj)
+        if not has_permission or obj is None:
+            return has_permission
+        return obj.players.count() < obj.max_players
+
 @admin.register(PickupGame)
 class PickupGameAdmin(admin.ModelAdmin):
-    list_display = ('get_game_title', 'get_formatted_time', 'location', 'current_players', 'max_players', 'price', 'is_active')
+    list_display = ('get_game_title', 'get_formatted_schedule', 'location', 'current_players', 'max_players', 'price', 'is_active')
     list_filter = ('is_active', 'location')
     search_fields = ('location',)
     date_hierarchy = 'time'
@@ -322,7 +328,7 @@ class PickupGameAdmin(admin.ModelAdmin):
     
     fieldsets = (
         ('Game Information', {
-            'fields': ('location', 'time', 'price')
+            'fields': ('location', 'time', 'end_time', 'price')
         }),
         ('Players', {
             'fields': ('max_players', 'current_players'),
@@ -341,24 +347,19 @@ class PickupGameAdmin(admin.ModelAdmin):
     get_game_title.short_description = 'Game'
     get_game_title.admin_order_field = 'location'
     
-    def get_formatted_time(self, obj):
-        """Display formatted date and time"""
-        return obj.time.strftime('%A, %B %d, %Y at %I:%M %p')
-    get_formatted_time.short_description = 'Date & Time'
-    get_formatted_time.admin_order_field = 'time'
+    def get_formatted_schedule(self, obj):
+        """Display formatted start and end time."""
+        start = obj.time.strftime('%A, %B %d, %Y at %I:%M %p')
+        if obj.end_time:
+            return f"{start} - {obj.end_time.strftime('%I:%M %p')}"
+        return start
+    get_formatted_schedule.short_description = 'Schedule'
+    get_formatted_schedule.admin_order_field = 'time'
     
     def get_queryset(self, request):
         """Optimize queryset"""
         qs = super().get_queryset(request)
         return qs.prefetch_related('players').order_by('-time')
-    
-    def save_formset(self, request, form, formset, change):
-        """Override to update current_players count after saving inline players"""
-        super().save_formset(request, form, formset, change)
-        # Update current_players count after formset is saved
-        if form.instance.pk:
-            form.instance.current_players = form.instance.players.count()
-            form.instance.save()
     
     actions = ['activate_games', 'deactivate_games']
     
@@ -380,18 +381,3 @@ class PickupGamePlayerAdmin(admin.ModelAdmin):
     list_filter = ('pickup_game',)
     search_fields = ('first_name', 'last_name', 'email', 'phone_number')
     readonly_fields = ()
-    
-    def save_model(self, request, obj, form, change):
-        """Update current_players count when player is saved"""
-        super().save_model(request, obj, form, change)
-        if obj.pickup_game:
-            obj.pickup_game.current_players = obj.pickup_game.players.count()
-            obj.pickup_game.save()
-    
-    def delete_model(self, request, obj):
-        """Update current_players count when player is deleted"""
-        pickup_game = obj.pickup_game
-        super().delete_model(request, obj)
-        if pickup_game:
-            pickup_game.current_players = pickup_game.players.count()
-            pickup_game.save()

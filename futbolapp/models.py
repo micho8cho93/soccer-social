@@ -1,4 +1,4 @@
-from django.db import models
+from django.db import models, transaction
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -400,10 +400,42 @@ class Referee(models.Model):
 class PickupGame(models.Model):
     location = models.CharField(max_length=100)
     time = models.DateTimeField()
+    end_time = models.DateTimeField(null=True, blank=True)
     max_players = models.IntegerField(default=10)
     current_players = models.IntegerField(default=0)
     is_active = models.BooleanField(default=True)
     price = models.FloatField(default=4.5)
+
+    def clean(self):
+        errors = {}
+
+        if self.max_players < 1:
+            errors['max_players'] = 'Maximum players must be at least 1.'
+
+        if self.end_time and self.end_time <= self.time:
+            errors['end_time'] = 'End time must be after the start time.'
+
+        existing_players = self.players.count() if self.pk else self.current_players
+        if self.max_players < existing_players:
+            errors['max_players'] = 'Maximum players cannot be lower than the number of registered players.'
+
+        if errors:
+            raise ValidationError(errors)
+
+    def sync_current_players(self, save=True):
+        current_count = self.players.count() if self.pk else 0
+        self.current_players = current_count
+        if save and self.pk:
+            PickupGame.objects.filter(pk=self.pk).update(current_players=current_count)
+        return current_count
+
+    @property
+    def spots_remaining(self):
+        return max(self.max_players - self.current_players, 0)
+
+    @property
+    def is_full(self):
+        return self.current_players >= self.max_players
 
     def __str__(self):
         return f"Game at {self.location} on {self.time.date()}"
@@ -415,6 +447,46 @@ class PickupGamePlayer(models.Model):
     email = models.EmailField()
     phone_number = models.CharField(max_length=20)
     age = models.PositiveIntegerField()
+
+    def clean(self):
+        errors = {}
+
+        if not self.pickup_game_id:
+            errors['pickup_game'] = 'A pickup game is required.'
+        else:
+            available_slots = self.pickup_game.players.exclude(pk=self.pk).count()
+            if not self.pickup_game.is_active:
+                errors['pickup_game'] = 'Cannot register for an inactive pickup game.'
+            elif available_slots >= self.pickup_game.max_players:
+                errors['pickup_game'] = 'This pickup game is full.'
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        old_pickup_game_id = None
+        if self.pk:
+            old_pickup_game_id = type(self).objects.filter(pk=self.pk).values_list('pickup_game_id', flat=True).first()
+
+        with transaction.atomic():
+            self.pickup_game = PickupGame.objects.select_for_update().get(pk=self.pickup_game_id)
+            self.full_clean()
+            super().save(*args, **kwargs)
+
+            affected_game_ids = {self.pickup_game_id}
+            if old_pickup_game_id and old_pickup_game_id != self.pickup_game_id:
+                affected_game_ids.add(old_pickup_game_id)
+
+            for game in PickupGame.objects.select_for_update().filter(pk__in=affected_game_ids):
+                game.sync_current_players()
+
+    def delete(self, *args, **kwargs):
+        pickup_game_id = self.pickup_game_id
+
+        with transaction.atomic():
+            pickup_game = PickupGame.objects.select_for_update().get(pk=pickup_game_id)
+            super().delete(*args, **kwargs)
+            pickup_game.sync_current_players()
 
     def __str__(self):
         return f"{self.first_name} {self.last_name} - {self.pickup_game}"

@@ -1,8 +1,8 @@
 from django.test import TestCase
 from django.contrib.auth.models import User
-from futbolapp.models import League, Season, Team, Player, Matchday, Match, LeagueStanding, Tournament, Group, TournamentMatch, GroupStanding
+from futbolapp.models import League, Season, Team, Player, Matchday, Match, LeagueStanding, Tournament, Group, TournamentMatch, GroupStanding, PickupGame, PickupGamePlayer
 from django.core.exceptions import ValidationError
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 import pytz
 
 class ModelTests(TestCase):
@@ -150,3 +150,62 @@ class ModelTests(TestCase):
 
         self.assertEqual(standing4.position, 1)
         self.assertEqual(standing1.position, 2)
+
+    def test_pickup_game_player_limit_enforced(self):
+        """Pickup games should reject registrations past max_players."""
+        start_time = datetime.now().replace(tzinfo=self.utc)
+        game = PickupGame.objects.create(location="Madrid", time=start_time, end_time=start_time + timedelta(hours=1), max_players=1)
+        PickupGamePlayer.objects.create(
+            pickup_game=game,
+            first_name="Alex",
+            last_name="One",
+            email="alex1@example.com",
+            phone_number="123456789",
+            age=25,
+        )
+
+        with self.assertRaises(ValidationError):
+            PickupGamePlayer.objects.create(
+                pickup_game=game,
+                first_name="Alex",
+                last_name="Two",
+                email="alex2@example.com",
+                phone_number="987654321",
+                age=27,
+            )
+
+        game.refresh_from_db()
+        self.assertEqual(game.current_players, 1)
+
+    def test_pickup_game_player_count_updates_on_create_and_delete(self):
+        """Pickup game counts should increment on join and decrement on cancel."""
+        start_time = datetime.now().replace(tzinfo=self.utc)
+        game = PickupGame.objects.create(location="Madrid", time=start_time, end_time=start_time + timedelta(hours=1), max_players=2)
+
+        player = PickupGamePlayer.objects.create(
+            pickup_game=game,
+            first_name="Taylor",
+            last_name="Joiner",
+            email="taylor@example.com",
+            phone_number="123123123",
+            age=29,
+        )
+        game.refresh_from_db()
+        self.assertEqual(game.current_players, 1)
+
+        player.delete()
+        game.refresh_from_db()
+        self.assertEqual(game.current_players, 0)
+
+    def test_pickup_game_end_time_must_be_after_start_time(self):
+        """Pickup games should require an end time after the start time."""
+        start_time = datetime.now().replace(tzinfo=self.utc)
+        game = PickupGame(
+            location="Madrid",
+            time=start_time,
+            end_time=start_time,
+            max_players=10,
+        )
+
+        with self.assertRaises(ValidationError):
+            game.full_clean()
