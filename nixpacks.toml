@@ -1,18 +1,18 @@
 [phases.setup]
-nixPkgs = ["python312", "python312Packages.pip", "nodejs", "postgresql"]
+nixPkgs = ["python312", "python312Packages.pip", "python312Packages.virtualenv", "nodejs", "postgresql"]
 
 [phases.install]
 cmds = [
   "npm install",
-  "pip install --upgrade pip",
-  "pip install -r requirements.txt"
+  "python -m venv /opt/venv",
+  ". /opt/venv/bin/activate && pip install -r requirements.txt"
 ]
 
 [phases.build]
 cmds = [
   "npm run build:css",
-  "python manage.py collectstatic --no-input --clear"
+  ". /opt/venv/bin/activate && python manage.py collectstatic --no-input --clear"
 ]
 
 [start]
-cmd = "gunicorn config.wsgi:application --bind 0.0.0.0:$PORT"
+cmd = ". /opt/venv/bin/activate && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT"
