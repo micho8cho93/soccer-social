@@ -4,9 +4,8 @@ nixPkgs = ["python312", "python312Packages.pip", "nodejs", "postgresql"]
 [phases.install]
 cmds = [
   "npm install",
-  "python -m ensurepip --upgrade || true",
-  "python -m pip install --upgrade pip",
-  "python -m pip install -r requirements.txt"
+  "pip install --upgrade pip",
+  "pip install -r requirements.txt"
 ]
 
 [phases.build]
@@ -16,4 +15,4 @@ cmds = [
 ]
 
 [start]
-cmd = "gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --log-file -"
+cmd = "gunicorn config.wsgi:application --bind 0.0.0.0:$PORT"
