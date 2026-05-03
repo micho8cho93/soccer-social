@@ -1,9 +1,10 @@
 [phases.setup]
-nixPkgs = ["python312", "nodejs", "postgresql"]
+nixPkgs = ["python312", "python312Packages.pip", "nodejs", "postgresql"]
 
 [phases.install]
 cmds = [
   "npm install",
+  "python -m ensurepip --upgrade || true",
   "python -m pip install --upgrade pip",
   "python -m pip install -r requirements.txt"
 ]
