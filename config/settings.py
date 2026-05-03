@@ -32,7 +32,7 @@ DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
 ALLOWED_HOSTS = ['soccersocial.up.railway.app', 'web-production-97d6f.up.railway.app', '.railway.app', 'localhost', '127.0.0.1', '127.0.0.1:8000']
 
-CSRF_TRUSTED_ORIGINS = ['https://soccersocial.up.railway.app', 'https://web-production-97d6f.up.railway.app', 'https://testliga.up.railway.app']
+CSRF_TRUSTED_ORIGINS = ['www.soccersocial.club', 'soccersocial.club', 'testliga.up.railway.app', 'https://soccersocial.club', 'https://www.soccersocial.club', 'https://soccersocial.up.railway.app', 'https://web-production-97d6f.up.railway.app', 'https://testliga.up.railway.app']
 
 
 # Application definition
