@@ -40,15 +40,13 @@ ALLOWED_HOSTS = [
     "127.0.0.1",
 ]
 
-CSRF_TRUSTED_ORIGINS = ['www.soccersocial.club', 
-                        'soccersocial.club', 
-                        'testliga.up.railway.app', 
-                        'https://soccersocial.club', 
-                        'https://www.soccersocial.club',
-                        'https://soccersocial.up.railway.app',
-                        'https://web-production-97d6f.up.railway.app',
-                        'https://testliga.up.railway.app'
-                        ]
+CSRF_TRUSTED_ORIGINS = [
+    'https://www.soccersocial.club',
+    'https://soccersocial.club',
+    'https://testliga.up.railway.app',
+    'https://soccersocial.up.railway.app',
+    'https://web-production-97d6f.up.railway.app',
+]
 
 
 # Application definition
@@ -171,6 +169,8 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:3000",  # Common port for VS Code Live Server
     "http://localhost:3000",
     "http://localhost:8080",
+    "https://soccersocial.club",
+    "https://www.soccersocial.club",
     "https://testliga.up.railway.app",
     "https://micho8cho93.github.io"  # production frontend URL for deployment
 ]
@@ -192,4 +192,3 @@ REST_FRAMEWORK = {
         'rest_framework.renderers.BrowsableAPIRenderer', # Useful for testing in browser
     ]
 }
-

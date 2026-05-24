@@ -48,5 +48,6 @@ urlpatterns = [
     path('tournament_team/<int:tournament_id>/<int:season_id>/<int:team_id>/player/<int:player_id>/edit/', views.player_form_view, name='tournament_player_edit'),
     path('player/<int:player_id>/', views.player_detail, name='player_detail'),
     path('pickup-calendar/', views.pickup_calendar, name='pickup_calendar'),
+    path('api/health', views.pickup_health, name='pickup_health'),
     path('api/', include(router.urls)),
 ]

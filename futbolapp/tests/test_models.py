@@ -161,7 +161,7 @@ class ModelTests(TestCase):
             last_name="One",
             email="alex1@example.com",
             phone_number="123456789",
-            age=25,
+            player_level="intermediate",
         )
 
         with self.assertRaises(ValidationError):
@@ -171,7 +171,7 @@ class ModelTests(TestCase):
                 last_name="Two",
                 email="alex2@example.com",
                 phone_number="987654321",
-                age=27,
+                player_level="genius",
             )
 
         game.refresh_from_db()
@@ -188,7 +188,7 @@ class ModelTests(TestCase):
             last_name="Joiner",
             email="taylor@example.com",
             phone_number="123123123",
-            age=29,
+            player_level="beginner",
         )
         game.refresh_from_db()
         self.assertEqual(game.current_players, 1)

@@ -1,4 +1,6 @@
-#!/Users/Michel/Desktop/soccer-social/.venv/bin/python3.12
+#!/bin/sh
+'''exec' "/Users/Michel/Desktop/soccer app/soccer-social/.venv/bin/python" "$0" "$@"
+' '''
 # -*- coding: utf-8 -*-
 import re
 import sys

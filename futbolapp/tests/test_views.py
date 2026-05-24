@@ -162,7 +162,7 @@ class ViewTests(TestCase):
             last_name="Player",
             email="first@example.com",
             phone_number="123456789",
-            age=24,
+            player_level="intermediate",
         )
 
         response = self.client.post('/futbol/api/game-players/', {
@@ -171,7 +171,7 @@ class ViewTests(TestCase):
             'last_name': 'Player',
             'email': 'second@example.com',
             'phone_number': '987654321',
-            'age': 26,
+            'player_level': 'genius',
         })
 
         self.assertEqual(response.status_code, 400)
@@ -196,7 +196,7 @@ class ViewTests(TestCase):
             'last_name': 'Tester',
             'email': 'joiner@example.com',
             'phone_number': '555555555',
-            'age': 28,
+            'player_level': 'beginner',
         })
 
         self.assertEqual(join_response.status_code, 201)

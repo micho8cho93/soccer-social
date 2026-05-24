@@ -14,6 +14,7 @@ from collections import defaultdict
 from django.db.models.functions import TruncDate
 from django.db.models import Q
 from .serializers import PickupGameSerializer, PickupGamePlayerSerializer
+import os
 
 # Create your views here.
 
@@ -685,6 +686,19 @@ def public_tournament_leaderboard(request, tournament_id, season_id):
 
 def pickup_calendar(request):
     return render(request, 'futbolapp/pickup_calendar.html')
+
+
+def pickup_page(request):
+    return render(request, 'futbolapp/pickup_calendar.html')
+
+
+def pickup_health(request):
+    return JsonResponse({
+        'status': 'ok',
+        'environment': 'development' if settings.DEBUG else 'production',
+        'host': request.get_host(),
+        'commit': os.getenv('RAILWAY_GIT_COMMIT_SHA') or os.getenv('GIT_COMMIT') or os.getenv('COMMIT_SHA'),
+    })
 
 
 def referee_match_update(request, match_id):

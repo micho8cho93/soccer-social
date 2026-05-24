@@ -441,12 +441,25 @@ class PickupGame(models.Model):
         return f"Game at {self.location} on {self.time.date()}"
 
 class PickupGamePlayer(models.Model):
+    PLAYER_LEVEL_BEGINNER = 'beginner'
+    PLAYER_LEVEL_INTERMEDIATE = 'intermediate'
+    PLAYER_LEVEL_GENIUS = 'genius'
+    PLAYER_LEVEL_CHOICES = [
+        (PLAYER_LEVEL_BEGINNER, 'Beginner'),
+        (PLAYER_LEVEL_INTERMEDIATE, 'Intermediate'),
+        (PLAYER_LEVEL_GENIUS, 'Genius'),
+    ]
+
     pickup_game = models.ForeignKey(PickupGame, on_delete=models.CASCADE, related_name='players')
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
     email = models.EmailField()
     phone_number = models.CharField(max_length=20)
-    age = models.PositiveIntegerField()
+    player_level = models.CharField(
+        max_length=20,
+        choices=PLAYER_LEVEL_CHOICES,
+        default=PLAYER_LEVEL_INTERMEDIATE,
+    )
 
     def clean(self):
         errors = {}

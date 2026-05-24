@@ -307,7 +307,7 @@ class RefereeAdmin(admin.ModelAdmin):
 class PickupGamePlayerInline(admin.TabularInline):
     model = PickupGamePlayer
     extra = 0
-    fields = ('first_name', 'last_name', 'email', 'phone_number', 'age')
+    fields = ('first_name', 'last_name', 'email', 'phone_number', 'player_level')
     verbose_name = 'Player'
     verbose_name_plural = 'Registered Players'
     readonly_fields = ()  # Allow editing of all fields
@@ -377,7 +377,7 @@ class PickupGameAdmin(admin.ModelAdmin):
 
 @admin.register(PickupGamePlayer)
 class PickupGamePlayerAdmin(admin.ModelAdmin):
-    list_display = ('first_name', 'last_name', 'email', 'phone_number', 'age', 'pickup_game')
+    list_display = ('first_name', 'last_name', 'email', 'phone_number', 'player_level', 'pickup_game')
     list_filter = ('pickup_game',)
     search_fields = ('first_name', 'last_name', 'email', 'phone_number')
     readonly_fields = ()
