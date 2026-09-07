@@ -181,7 +181,10 @@ body {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.28));
+  filter:
+    drop-shadow(0 0 10px rgba(255, 255, 255, 0.35))
+    drop-shadow(0 0 30px rgba(255, 184, 0, 0.42))
+    drop-shadow(0 0 55px rgba(255, 184, 0, 0.24));
 }
 
 h1 {
