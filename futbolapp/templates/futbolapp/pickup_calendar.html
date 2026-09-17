@@ -30,33 +30,28 @@
         <div class="days-grid" id="days-grid">
           <!-- Days will be dynamically generated -->
         </div>
-      </section>
-
-      <section class="games-section panel" aria-labelledby="games-heading">
-        <div class="section-heading section-heading--split">
-          <div>
-            <p class="section-label">Match Availability</p>
-            <h2 class="section-title" id="games-heading">Available Games</h2>
-          </div>
-          <p class="day-pill" aria-live="polite">Showing: <span id="selected-day">Today</span></p>
-        </div>
-
-        <div class="games-list" id="games-list" aria-live="polite">
-          <div class="loading-spinner">
-            <div class="spinner" aria-hidden="true"></div>
-            <p>Loading games for the next 30 days...</p>
-          </div>
-        </div>
+        <div class="calendar-status" id="calendar-status" role="status" aria-live="polite">Loading games for the next 30 days...</div>
       </section>
     </main>
   </div>
 
-  <div class="modal" id="registration-modal">
+  <div class="modal" id="day-games-modal" role="dialog" aria-modal="true" aria-labelledby="day-games-title">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+      <button class="modal-close" id="day-games-modal-close" aria-label="Close games for this day">&times;</button>
+      <p class="modal-kicker">Match Availability</p>
+      <h2 class="modal-title" id="day-games-title">Available Games</h2>
+      <p class="modal-subtitle" id="day-games-date"></p>
+      <div class="games-list" id="games-list" aria-live="polite"></div>
+    </div>
+  </div>
+
+  <div class="modal" id="registration-modal" role="dialog" aria-modal="true" aria-labelledby="registration-title">
     <div class="modal-overlay"></div>
     <div class="modal-content">
       <button class="modal-close" id="modal-close" aria-label="Close modal">&times;</button>
       <p class="modal-kicker">Secure your spot</p>
-      <h2 class="modal-title">Join <span id="game-title-modal"></span></h2>
+      <h2 class="modal-title" id="registration-title">Join <span id="game-title-modal"></span></h2>
       <p class="modal-subtitle">Fill in your details and we’ll register you for this game instantly.</p>
 
       <form class="registration-form" id="registration-form" novalidate>
@@ -103,16 +98,17 @@
         </div>
 
         <button type="submit" class="submit-btn">Register for Game</button>
+        <p class="form-feedback" id="registration-feedback" role="alert"></p>
       </form>
     </div>
   </div>
 
-  <div class="modal" id="players-modal">
+  <div class="modal" id="players-modal" role="dialog" aria-modal="true" aria-labelledby="players-title">
     <div class="modal-overlay"></div>
     <div class="modal-content">
       <button class="modal-close" id="players-modal-close" aria-label="Close modal">&times;</button>
       <p class="modal-kicker">Team Sheet</p>
-      <h2 class="modal-title">Players • <span id="players-game-title-modal"></span></h2>
+      <h2 class="modal-title" id="players-title">Players • <span id="players-game-title-modal"></span></h2>
       <p class="modal-subtitle">Current players signed up for this game.</p>
 
       <div class="players-list" id="players-list">

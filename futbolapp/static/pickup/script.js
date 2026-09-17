@@ -105,6 +105,7 @@ const runtimeConfig = {
 // ============================================
 const state = {
   games: [],
+  gamesSnapshot: null,
   selectedDay: null,
   visibleStartDay: null,
   registeringGameId: null,
@@ -116,12 +117,16 @@ const state = {
 // ============================================
 const DOM = {
   daysGrid: document.getElementById('days-grid'),
+  calendarStatus: document.getElementById('calendar-status'),
   gamesListContainer: document.getElementById('games-list'),
-  selectedDayText: document.getElementById('selected-day'),
+  dayGamesModal: document.getElementById('day-games-modal'),
+  dayGamesModalClose: document.getElementById('day-games-modal-close'),
+  dayGamesDate: document.getElementById('day-games-date'),
   modal: document.getElementById('registration-modal'),
   modalClose: document.getElementById('modal-close'),
   gameTitleSpan: document.getElementById('game-title-modal'),
   registrationForm: document.getElementById('registration-form'),
+  registrationFeedback: document.getElementById('registration-feedback'),
   playersModal: document.getElementById('players-modal'),
   playersModalClose: document.getElementById('players-modal-close'),
   playersGameTitleSpan: document.getElementById('players-game-title-modal'),
@@ -306,17 +311,29 @@ const api = {
       const visibleGames = utils.filterGamesForVisibleRange(games);
       const visibleDayKeys = utils.getVisibleDates().map(date => utils.getDayKey(date));
       const todayKey = utils.getCurrentDayKey();
+      const gamesSnapshot = JSON.stringify(visibleGames);
+
+      if (state.visibleStartDay === todayKey && state.gamesSnapshot === gamesSnapshot) {
+        if (DOM.calendarStatus.classList.contains('error-message-box')) {
+          DOM.calendarStatus.textContent = `${visibleGames.length} game${visibleGames.length !== 1 ? 's' : ''} scheduled in the next 30 days. Select a date to see games.`;
+          DOM.calendarStatus.classList.remove('error-message-box');
+        }
+        return;
+      }
 
       if (!state.selectedDay || !visibleDayKeys.includes(state.selectedDay)) {
         state.selectedDay = todayKey;
       }
 
       state.games = visibleGames;
+      state.gamesSnapshot = gamesSnapshot;
       state.visibleStartDay = todayKey;
       ui.renderDayCards(visibleGames);
-      ui.renderGames(visibleGames);
-      ui.showSelectedGames(state.selectedDay);
-      ui.attachJoinButtonListeners();
+      DOM.calendarStatus.textContent = `${visibleGames.length} game${visibleGames.length !== 1 ? 's' : ''} scheduled in the next 30 days. Select a date to see games.`;
+      DOM.calendarStatus.classList.remove('error-message-box');
+      if (DOM.dayGamesModal.classList.contains('active')) {
+        ui.renderGamesForDay(state.selectedDay);
+      }
     } catch (error) {
       console.error('Could not fetch pickup games:', error);
       ui.showError('Error loading games. Please check your connection and try again.');
@@ -374,15 +391,17 @@ const api = {
           throw new Error(`Registration validation failed. Backend payload: ${JSON.stringify(responseData)}`);
         }
 
-        ui.showAlert('Registration successful! You have been signed up for the game.');
         // Reset the form
         DOM.registrationForm.reset();
         // Clear any validation errors
         DOM.registrationForm.querySelectorAll('.error').forEach(el => el.classList.remove('error'));
         DOM.registrationForm.querySelectorAll('.error-message').forEach(el => el.textContent = '');
-        modal.close();
+        modal.close(false);
+        dayGamesModal.close();
         // Re-fetch games to update player count
         await api.fetchGames();
+        DOM.calendarStatus.textContent = 'Registration successful! You have been signed up for the game.';
+        DOM.daysGrid.querySelector(`[data-day="${state.selectedDay}"]`)?.focus();
       } else {
         const errorData = responseData || { error: 'Registration failed! Try again.' };
         // Log the error for debugging
@@ -437,33 +456,21 @@ const api = {
 // ============================================
 const ui = {
   renderDayCards(games) {
-    const visibleDates = utils.getVisibleDates();
     const gameCounts = this.calculateGameCounts(games);
-    const gamesByDay = this.groupGamesByDay(games);
-
-    DOM.daysGrid.innerHTML = visibleDates.map((date) => {
+    DOM.daysGrid.innerHTML = utils.getVisibleDates().map(date => {
       const day = utils.getDayKey(date);
       const count = gameCounts[day] || 0;
       const dayName = date.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
       const dayDate = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      const isActive = day === state.selectedDay ? 'active' : '';
-      const mobileGames = this.createMobileDayGames(day, gamesByDay[day]);
 
       return `
-        <div class="day-card-stack">
-          <button class="day-card ${isActive}" data-day="${day}" aria-expanded="${day === state.selectedDay}" aria-controls="mobile-games-${day}">
-            <span class="day-name">${dayName}</span>
-            <span class="day-date">${dayDate}</span>
-            <span class="game-count">${count} game${count !== 1 ? 's' : ''}</span>
-          </button>
-          <div class="day-card-games ${isActive}" id="mobile-games-${day}" data-day-panel="${day}">
-            ${mobileGames}
-          </div>
-        </div>
+        <button class="day-card ${count ? 'has-games' : ''}" data-day="${day}" aria-haspopup="dialog" aria-label="${dayName} ${dayDate}, ${count} game${count !== 1 ? 's' : ''}">
+          <span class="day-name">${dayName}</span>
+          <span class="day-date">${dayDate}</span>
+          <span class="game-count">${count} game${count !== 1 ? 's' : ''}</span>
+        </button>
       `;
     }).join('');
-
-    this.attachDayCardListeners();
   },
 
   calculateGameCounts(games) {
@@ -474,27 +481,11 @@ const ui = {
     }, {});
   },
 
-  renderGames(games) {
-    const gamesByDay = this.groupGamesByDay(games);
-    const visibleDayKeys = utils.getVisibleDates().map(date => utils.getDayKey(date));
-
-    DOM.gamesListContainer.innerHTML = visibleDayKeys.map(day => `
-      <div class="game-cards" data-day="${day}" style="display: ${day === state.selectedDay ? 'grid' : 'none'}">
-        ${gamesByDay[day] ? gamesByDay[day].map(game => this.createGameCard(game)).join('') : '<p class="no-games">No games scheduled for this day.</p>'}
-      </div>
-    `).join('');
-  },
-
-  createMobileDayGames(day, gamesForDay = []) {
-    if (!gamesForDay.length) {
-      return '<p class="no-games no-games--mobile">No games scheduled for this day.</p>';
-    }
-
-    return `
-      <div class="game-cards game-cards--mobile" data-day="${day}">
-        ${gamesForDay.map(game => this.createGameCard(game)).join('')}
-      </div>
-    `;
+  renderGamesForDay(day) {
+    const games = this.groupGamesByDay(state.games)[day] || [];
+    DOM.gamesListContainer.innerHTML = games.length
+      ? `<div class="game-cards">${games.map(game => this.createGameCard(game)).join('')}</div>`
+      : '<p class="no-games">No games scheduled for this day.</p>';
   },
 
   groupGamesByDay(games) {
@@ -545,91 +536,61 @@ const ui = {
     `;
   },
 
-  showSelectedGames(selectedDay) {
-    document.querySelectorAll('.game-cards').forEach(cards => {
-      if (cards.classList.contains('game-cards--mobile')) {
-        return;
-      }
-
-      cards.style.display = cards.dataset.day === selectedDay ? 'grid' : 'none';
-    });
-
-    document.querySelectorAll('.day-card').forEach(card => {
-      const isSelected = card.dataset.day === selectedDay;
-      card.classList.toggle('active', isSelected);
-      card.setAttribute('aria-expanded', String(isSelected));
-    });
-
-    document.querySelectorAll('.day-card-games').forEach(panel => {
-      panel.classList.toggle('active', panel.dataset.dayPanel === selectedDay);
-    });
-
-    const [year, month, day] = selectedDay.split('-').map(Number);
-    DOM.selectedDayText.textContent = new Date(year, month - 1, day).toLocaleDateString('en-US', {
-      weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
-    });
-    state.selectedDay = selectedDay;
-  },
-
   showError(message) {
-    DOM.gamesListContainer.innerHTML = `
-      <div class="error-message-box">
-        <p>${message}</p>
-      </div>
-    `;
+    DOM.calendarStatus.textContent = message;
+    DOM.calendarStatus.classList.add('error-message-box');
   },
 
   showAlert(message) {
-    alert(message);
-    // TODO: Replace with custom toast notification
-  },
-
-  attachDayCardListeners() {
-    document.querySelectorAll('.day-card').forEach(card => {
-      card.addEventListener('click', function() {
-        ui.showSelectedGames(this.dataset.day);
-      });
-    });
-  },
-
-  attachJoinButtonListeners() {
-    document.querySelectorAll('.join-btn').forEach(button => {
-      button.addEventListener('click', function() {
-        if (this.disabled) {
-          return;
-        }
-
-        state.registeringGameId = this.dataset.gameId;
-        DOM.gameTitleSpan.textContent = this.dataset.gameTitle;
-        modal.open();
-      });
-    });
-
-    document.querySelectorAll('.players-btn').forEach(button => {
-      button.addEventListener('click', function() {
-        const gameId = this.dataset.gameId;
-        const gameTitle = this.dataset.gameTitle;
-        playersModal.open(gameId, gameTitle);
-      });
-    });
+    DOM.registrationFeedback.textContent = message;
   }
+
 };
 
 // ============================================
 // Modal Controller
 // ============================================
-const modal = {
-  open() {
-    DOM.modal.classList.add('active');
+const dayGamesModal = {
+  open(day) {
+    state.selectedDay = day;
+    const [year, month, date] = day.split('-').map(Number);
+    DOM.dayGamesDate.textContent = new Date(year, month - 1, date).toLocaleDateString('en-US', {
+      weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
+    });
+    ui.renderGamesForDay(day);
+    DOM.dayGamesModal.classList.add('active');
     document.body.style.overflow = 'hidden';
+    DOM.dayGamesModalClose.focus();
   },
 
   close() {
+    DOM.dayGamesModal.classList.remove('active');
+    document.body.style.overflow = '';
+    DOM.daysGrid.querySelector(`[data-day="${state.selectedDay}"]`)?.focus();
+  }
+};
+
+const modal = {
+  open(trigger) {
+    this.trigger = trigger;
+    DOM.dayGamesModal.classList.remove('active');
+    DOM.modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+    DOM.modalClose.focus();
+  },
+
+  close(returnToDay = true) {
     DOM.modal.classList.remove('active');
-    document.body.style.overflow = 'auto';
     DOM.registrationForm.reset();
+    DOM.registrationFeedback.textContent = '';
     this.clearErrors();
     state.registeringGameId = null;
+    if (returnToDay) {
+      DOM.dayGamesModal.classList.add('active');
+      this.trigger?.focus();
+    } else {
+      document.body.style.overflow = '';
+    }
   },
 
   clearErrors() {
@@ -644,10 +605,13 @@ const modal = {
 // Players Modal Controller
 // ============================================
 const playersModal = {
-  async open(gameId, gameTitle) {
+  async open(gameId, gameTitle, trigger) {
+    this.trigger = trigger;
     DOM.playersGameTitleSpan.textContent = gameTitle;
+    DOM.dayGamesModal.classList.remove('active');
     DOM.playersModal.classList.add('active');
     document.body.style.overflow = 'hidden';
+    DOM.playersModalClose.focus();
 
     // Show loading state
     DOM.playersList.innerHTML = `
@@ -659,8 +623,9 @@ const playersModal = {
 
     try {
       const players = await api.fetchPlayersForGame(gameId);
-      this.renderPlayers(players);
+      if (DOM.playersModal.classList.contains('active')) this.renderPlayers(players);
     } catch (error) {
+      if (!DOM.playersModal.classList.contains('active')) return;
       DOM.playersList.innerHTML = `
         <div class="error-message-box">
           <p>Error loading players. Please try again.</p>
@@ -680,7 +645,7 @@ const playersModal = {
 
       return `
       <div class="player-item">
-        <span class="player-name">${firstName}</span>
+        <span class="player-name">${utils.escapeHtml(firstName)}</span>
       </div>
     `;
     }).join('');
@@ -694,7 +659,8 @@ const playersModal = {
 
   close() {
     DOM.playersModal.classList.remove('active');
-    document.body.style.overflow = 'auto';
+    DOM.dayGamesModal.classList.add('active');
+    this.trigger?.focus();
     DOM.playersList.innerHTML = '';
   }
 };
@@ -790,6 +756,29 @@ const validation = {
 // ============================================
 const events = {
   init() {
+    DOM.daysGrid.addEventListener('click', event => {
+      const card = event.target.closest('.day-card');
+      if (card) dayGamesModal.open(card.dataset.day);
+    });
+
+    DOM.gamesListContainer.addEventListener('click', event => {
+      const joinButton = event.target.closest('.join-btn');
+      if (joinButton && !joinButton.disabled) {
+        state.registeringGameId = joinButton.dataset.gameId;
+        DOM.gameTitleSpan.textContent = joinButton.dataset.gameTitle;
+        modal.open(joinButton);
+        return;
+      }
+
+      const playersButton = event.target.closest('.players-btn');
+      if (playersButton) {
+        playersModal.open(playersButton.dataset.gameId, playersButton.dataset.gameTitle, playersButton);
+      }
+    });
+
+    DOM.dayGamesModalClose.addEventListener('click', () => dayGamesModal.close());
+    DOM.dayGamesModal.querySelector('.modal-overlay').addEventListener('click', () => dayGamesModal.close());
+
     // Modal close events
     DOM.modalClose.addEventListener('click', () => modal.close());
     DOM.modal.querySelector('.modal-overlay').addEventListener('click', () => modal.close());
@@ -805,9 +794,10 @@ const events = {
       if (e.key === 'Escape') {
         if (DOM.modal.classList.contains('active')) {
           modal.close();
-        }
-        if (DOM.playersModal.classList.contains('active')) {
+        } else if (DOM.playersModal.classList.contains('active')) {
           playersModal.close();
+        } else if (DOM.dayGamesModal.classList.contains('active')) {
+          dayGamesModal.close();
         }
       }
     });
@@ -859,11 +849,7 @@ const app = {
     events.init();
     await api.fetchBackendMetadata();
     await api.fetchGames();
-    setInterval(() => {
-      if (state.visibleStartDay !== utils.getCurrentDayKey()) {
-        api.fetchGames();
-      }
-    }, 60_000);
+    setInterval(() => api.fetchGames(), 60_000);
   }
 };
 
