@@ -318,6 +318,18 @@ select {
   margin-bottom: var(--space-3);
 }
 
+.location-link {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--brand-green);
+  text-underline-offset: 0.12em;
+}
+
+.location-link:hover,
+.location-link:focus-visible {
+  color: var(--brand-green);
+}
+
 .game-info {
   margin-bottom: var(--space-4);
   display: grid;

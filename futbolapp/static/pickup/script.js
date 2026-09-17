@@ -106,6 +106,7 @@ const runtimeConfig = {
 const state = {
   games: [],
   selectedDay: null,
+  visibleStartDay: null,
   registeringGameId: null,
   backendMetadata: null
 };
@@ -187,26 +188,47 @@ const utils = {
   },
 
   getDayFromDate(isoString) {
-    return new Date(isoString).toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+    return this.getDayKey(new Date(isoString));
   },
 
   getDayKey(date) {
-    return date.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
   },
 
   getCurrentDayKey() {
     return this.getDayKey(new Date());
   },
 
-  capitalizeFirstLetter(string) {
-    return string.charAt(0).toUpperCase() + string.slice(1);
+  escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, character => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[character]);
+  },
+
+  getSafeMapsUrl(value) {
+    if (!value) return null;
+
+    try {
+      const url = new URL(value);
+      const host = url.hostname.toLowerCase();
+      const isGoogleMaps = host === 'maps.google.com'
+        || host === 'maps.app.goo.gl'
+        || (['google.com', 'www.google.com'].includes(host) && url.pathname.startsWith('/maps'))
+        || (host === 'goo.gl' && url.pathname.startsWith('/maps'));
+
+      return url.protocol === 'https:' && isGoogleMaps && !url.username && !url.password && !url.port
+        ? url.href
+        : null;
+    } catch {
+      return null;
+    }
   },
 
   getVisibleDates() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    return Array.from({ length: 7 }, (_, index) => {
+    return Array.from({ length: 30 }, (_, index) => {
       const date = new Date(today);
       date.setDate(today.getDate() + index);
       return date;
@@ -218,7 +240,7 @@ const utils = {
     const rangeStart = new Date(visibleDates[0]);
     rangeStart.setHours(0, 0, 0, 0);
 
-    const rangeEnd = new Date(visibleDates[6]);
+    const rangeEnd = new Date(visibleDates[visibleDates.length - 1]);
     rangeEnd.setHours(23, 59, 59, 999);
 
     return { rangeStart, rangeEnd };
@@ -290,6 +312,7 @@ const api = {
       }
 
       state.games = visibleGames;
+      state.visibleStartDay = todayKey;
       ui.renderDayCards(visibleGames);
       ui.renderGames(visibleGames);
       ui.showSelectedGames(state.selectedDay);
@@ -488,8 +511,15 @@ const ui = {
     const currentPlayers = Number(game.current_players) || 0;
     const spotsLeft = Math.max(0, maxPlayers - currentPlayers);
     const isFull = spotsLeft === 0;
-    const gameType = game.sport || 'Soccer';
-    const gamePrice = utils.formatGamePrice(game.price);
+    const gameType = utils.escapeHtml(game.sport || 'Soccer');
+    const gamePrice = utils.escapeHtml(utils.formatGamePrice(game.price));
+    const location = utils.escapeHtml(game.location);
+    const gameTitle = utils.escapeHtml(`${game.location} Pickup`);
+    const gameId = utils.escapeHtml(game.id);
+    const mapsUrl = utils.getSafeMapsUrl(game.location_map_url);
+    const locationTitle = mapsUrl
+      ? `<a class="location-link" href="${utils.escapeHtml(mapsUrl)}" target="_blank" rel="noopener noreferrer" aria-label="Open ${location} in Google Maps">${location}</a>`
+      : location;
 
     return `
       <article class="game-card">
@@ -497,17 +527,17 @@ const ui = {
           <span class="game-type">${gameType}</span>
           <span class="spots-left">${isFull ? 'Game full' : `${spotsLeft} spot${spotsLeft !== 1 ? 's' : ''} left`}</span>
         </div>
-        <h3 class="game-title">${game.location} Pickup</h3>
+        <h3 class="game-title">${locationTitle} Pickup</h3>
         <div class="game-info">
           <p class="game-time">${utils.formatGameTime(game.time, game.end_time)}</p>
-          <p class="game-location">${game.location}</p>
+          <p class="game-location">${location}</p>
           <p class="game-price">${gamePrice}</p>
         </div>
         <div class="game-buttons">
-          <button class="join-btn" data-game-id="${game.id}" data-game-title="${game.location} Pickup" ${isFull ? 'disabled aria-disabled="true"' : ''}>
+          <button class="join-btn" data-game-id="${gameId}" data-game-title="${gameTitle}" ${isFull ? 'disabled aria-disabled="true"' : ''}>
             ${isFull ? 'Game Full' : 'Join Game'}
           </button>
-          <button class="players-btn" data-game-id="${game.id}" data-game-title="${game.location} Pickup">
+          <button class="players-btn" data-game-id="${gameId}" data-game-title="${gameTitle}">
             List of Players
           </button>
         </div>
@@ -534,7 +564,10 @@ const ui = {
       panel.classList.toggle('active', panel.dataset.dayPanel === selectedDay);
     });
 
-    DOM.selectedDayText.textContent = utils.capitalizeFirstLetter(selectedDay);
+    const [year, month, day] = selectedDay.split('-').map(Number);
+    DOM.selectedDayText.textContent = new Date(year, month - 1, day).toLocaleDateString('en-US', {
+      weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
+    });
     state.selectedDay = selectedDay;
   },
 
@@ -826,6 +859,11 @@ const app = {
     events.init();
     await api.fetchBackendMetadata();
     await api.fetchGames();
+    setInterval(() => {
+      if (state.visibleStartDay !== utils.getCurrentDayKey()) {
+        api.fetchGames();
+      }
+    }, 60_000);
   }
 };
 

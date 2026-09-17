@@ -52,5 +52,5 @@ class PickupGameSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = PickupGame
-        fields = ['id', 'location', 'time', 'end_time', 'max_players', 'current_players', 'spots_remaining', 'is_full', 'price', 'is_active', 'players']
+        fields = ['id', 'location', 'location_map_url', 'time', 'end_time', 'max_players', 'current_players', 'spots_remaining', 'is_full', 'price', 'is_active', 'players']
         read_only_fields = ['current_players', 'spots_remaining', 'is_full', 'players']

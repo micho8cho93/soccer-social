@@ -3,7 +3,56 @@ from django.urls import reverse
 from django.contrib.auth.models import User
 from futbolapp.models import League, Season, Team, Player, Matchday, Match, LeagueStanding, Tournament, Group, Profile, PlayerStatistic, PickupGame, PickupGamePlayer
 from datetime import date, datetime, timedelta
+from django.utils import timezone
+from django.core.exceptions import ValidationError
 import pytz
+
+
+class PickupLocationApiTests(TestCase):
+    def setUp(self):
+        self.start_time = timezone.now() + timedelta(days=1)
+        self.game = PickupGame.objects.create(location='Legacy Field', time=self.start_time)
+
+    def test_existing_game_can_remain_without_map_link(self):
+        self.game.full_clean()
+        response = self.client.get('/futbol/api/games/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()[0]['location_map_url'], '')
+
+    def test_new_game_requires_valid_google_maps_link(self):
+        game = PickupGame(location='New Field', time=self.start_time)
+        with self.assertRaises(ValidationError):
+            game.full_clean()
+
+        game.location_map_url = 'https://example.com/maps/field'
+        with self.assertRaises(ValidationError):
+            game.full_clean()
+
+        game.location_map_url = 'https://maps.app.goo.gl/abc123'
+        game.full_clean()
+
+    def test_only_staff_can_write_games(self):
+        payload = {
+            'location': 'New Field',
+            'location_map_url': 'https://maps.app.goo.gl/abc123',
+            'time': self.start_time.isoformat(),
+            'max_players': 10,
+        }
+        self.assertEqual(self.client.post('/futbol/api/games/', payload).status_code, 403)
+
+        user = User.objects.create_user(username='player', password='password')
+        self.client.force_login(user)
+        self.assertEqual(self.client.post('/futbol/api/games/', payload).status_code, 403)
+        self.assertEqual(self.client.delete(f'/futbol/api/games/{self.game.pk}/').status_code, 403)
+
+        user.is_staff = True
+        user.save(update_fields=['is_staff'])
+        response = self.client.post('/futbol/api/games/', payload)
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()['location_map_url'], payload['location_map_url'])
+
+        payload['location_map_url'] = ''
+        self.assertEqual(self.client.post('/futbol/api/games/', payload).status_code, 400)
 
 @override_settings(STATICFILES_STORAGE='django.contrib.staticfiles.storage.StaticFilesStorage')
 class ViewTests(TestCase):

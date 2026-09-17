@@ -328,7 +328,7 @@ class PickupGameAdmin(admin.ModelAdmin):
     
     fieldsets = (
         ('Game Information', {
-            'fields': ('location', 'time', 'end_time', 'price')
+            'fields': ('location', 'location_map_url', 'time', 'end_time', 'price')
         }),
         ('Players', {
             'fields': ('max_players', 'current_players'),

@@ -3,6 +3,7 @@ from django.contrib import messages
 from django.core.mail import send_mail
 from django.conf import settings
 from rest_framework import viewsets
+from rest_framework.permissions import BasePermission, SAFE_METHODS
 from .models import Matchday, Match, Team, Player, PlayerStatistic, LeagueStanding, Season, League, Tournament, Group, TournamentMatch, TournamentPlayerStatistic, GroupStanding, Referee, PickupGame, PickupGamePlayer
 from django.db.models import Sum, F
 from django.http import JsonResponse, HttpResponseForbidden
@@ -752,10 +753,16 @@ def landing_page(request):
     return render(request, 'futbolapp/landing_page.html')
 
 # Pickup games
+class StaffWritePermission(BasePermission):
+    def has_permission(self, request, view):
+        return request.method in SAFE_METHODS or (request.user.is_authenticated and request.user.is_staff)
+
+
 class PickupGameViewSet(viewsets.ModelViewSet):
     # Retrieve all active pickup games
     queryset = PickupGame.objects.filter(is_active=True).prefetch_related('players').order_by('time')
     serializer_class = PickupGameSerializer
+    permission_classes = [StaffWritePermission]
 
 class PickupGamePlayerViewSet(viewsets.ModelViewSet):
     queryset = PickupGamePlayer.objects.all()

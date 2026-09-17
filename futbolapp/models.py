@@ -3,6 +3,7 @@ from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.core.exceptions import ValidationError
+from urllib.parse import urlsplit
 
 class League(models.Model):
     name = models.CharField(max_length=100)
@@ -399,6 +400,12 @@ class Referee(models.Model):
 # Pickup games
 class PickupGame(models.Model):
     location = models.CharField(max_length=100)
+    location_map_url = models.URLField(
+        max_length=2048,
+        blank=True,
+        default='',
+        help_text='Paste a full HTTPS Google Maps link. Required for new games.',
+    )
     time = models.DateTimeField()
     end_time = models.DateTimeField(null=True, blank=True)
     max_players = models.IntegerField(default=10)
@@ -408,6 +415,26 @@ class PickupGame(models.Model):
 
     def clean(self):
         errors = {}
+
+        if not self.pk and not self.location_map_url:
+            errors['location_map_url'] = 'A Google Maps link is required for new games.'
+        elif self.location_map_url:
+            try:
+                parsed = urlsplit(self.location_map_url)
+                host = parsed.hostname or ''
+                is_google_maps = (
+                    host in {'maps.google.com', 'maps.app.goo.gl'}
+                    or (host in {'google.com', 'www.google.com'} and parsed.path.startswith('/maps'))
+                    or (host == 'goo.gl' and parsed.path.startswith('/maps'))
+                )
+                valid_map_url = (
+                    parsed.scheme == 'https' and is_google_maps
+                    and not parsed.username and not parsed.password and not parsed.port
+                )
+            except ValueError:
+                valid_map_url = False
+            if not valid_map_url:
+                errors['location_map_url'] = 'Enter a valid HTTPS Google Maps link.'
 
         if self.max_players < 1:
             errors['max_players'] = 'Maximum players must be at least 1.'
