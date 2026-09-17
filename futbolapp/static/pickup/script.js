@@ -517,13 +517,12 @@ const ui = {
     const locationDisplay = mapsUrl
       ? `<a class="location-link" href="${utils.escapeHtml(mapsUrl)}" target="_blank" rel="noopener noreferrer" aria-label="Open ${location} in Google Maps">${location}</a>`
       : location;
-    const waitlistCount = Number(game.waitlist_count) || 0;
 
     return `
       <article class="game-card">
         <div class="game-header">
           <span class="game-type">${gameType}</span>
-          <span class="spots-left ${isFull ? 'spots-left--full' : ''}">${isFull ? (waitlistCount ? `Full · ${waitlistCount} waitlisted` : 'Full · Waitlist open') : `${spotsLeft} spot${spotsLeft !== 1 ? 's' : ''} left`}</span>
+          <span class="spots-left ${isFull ? 'spots-left--full' : ''}">${isFull ? 'Waitlist open' : `${spotsLeft} spot${spotsLeft !== 1 ? 's' : ''} left`}</span>
         </div>
         <h3 class="game-title">${gameTitle}</h3>
         <div class="game-info">
