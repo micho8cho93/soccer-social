@@ -124,6 +124,10 @@ const DOM = {
   dayGamesDate: document.getElementById('day-games-date'),
   modal: document.getElementById('registration-modal'),
   modalClose: document.getElementById('modal-close'),
+  registrationKicker: document.getElementById('registration-kicker'),
+  registrationAction: document.getElementById('registration-action'),
+  registrationSubtitle: document.getElementById('registration-subtitle'),
+  registrationSubmit: document.getElementById('registration-submit'),
   gameTitleSpan: document.getElementById('game-title-modal'),
   registrationForm: document.getElementById('registration-form'),
   registrationFeedback: document.getElementById('registration-feedback'),
@@ -400,7 +404,9 @@ const api = {
         dayGamesModal.close();
         // Re-fetch games to update player count
         await api.fetchGames();
-        DOM.calendarStatus.textContent = 'Registration successful! You have been signed up for the game.';
+        DOM.calendarStatus.textContent = normalizedResponse.is_waitlisted
+          ? 'You joined the waitlist. If a spot opens, you will be moved into the game automatically.'
+          : 'Registration successful! You have been signed up for the game.';
         DOM.daysGrid.querySelector(`[data-day="${state.selectedDay}"]`)?.focus();
       } else {
         const errorData = responseData || { error: 'Registration failed! Try again.' };
@@ -508,25 +514,26 @@ const ui = {
     const gameTitle = utils.escapeHtml(`${game.location} Pickup`);
     const gameId = utils.escapeHtml(game.id);
     const mapsUrl = utils.getSafeMapsUrl(game.location_map_url);
-    const locationTitle = mapsUrl
+    const locationDisplay = mapsUrl
       ? `<a class="location-link" href="${utils.escapeHtml(mapsUrl)}" target="_blank" rel="noopener noreferrer" aria-label="Open ${location} in Google Maps">${location}</a>`
       : location;
+    const waitlistCount = Number(game.waitlist_count) || 0;
 
     return `
       <article class="game-card">
         <div class="game-header">
           <span class="game-type">${gameType}</span>
-          <span class="spots-left">${isFull ? 'Game full' : `${spotsLeft} spot${spotsLeft !== 1 ? 's' : ''} left`}</span>
+          <span class="spots-left ${isFull ? 'spots-left--full' : ''}">${isFull ? (waitlistCount ? `Full · ${waitlistCount} waitlisted` : 'Full · Waitlist open') : `${spotsLeft} spot${spotsLeft !== 1 ? 's' : ''} left`}</span>
         </div>
-        <h3 class="game-title">${locationTitle} Pickup</h3>
+        <h3 class="game-title">${gameTitle}</h3>
         <div class="game-info">
           <p class="game-time">${utils.formatGameTime(game.time, game.end_time)}</p>
-          <p class="game-location">${location}</p>
+          <p class="game-location">${locationDisplay}</p>
           <p class="game-price">${gamePrice}</p>
         </div>
         <div class="game-buttons">
-          <button class="join-btn" data-game-id="${gameId}" data-game-title="${gameTitle}" ${isFull ? 'disabled aria-disabled="true"' : ''}>
-            ${isFull ? 'Game Full' : 'Join Game'}
+          <button class="join-btn" data-game-id="${gameId}" data-game-title="${gameTitle}" data-is-full="${isFull}">
+            ${isFull ? 'Join Waitlist' : 'Join Game'}
           </button>
           <button class="players-btn" data-game-id="${gameId}" data-game-title="${gameTitle}">
             List of Players
@@ -640,12 +647,18 @@ const playersModal = {
       return;
     }
 
-    const playersHTML = players.map(player => {
+    const orderedPlayers = [...players].sort((a, b) =>
+      Number(Boolean(a.is_waitlisted)) - Number(Boolean(b.is_waitlisted)) || Number(a.id) - Number(b.id)
+    );
+    const playersHTML = orderedPlayers.map(player => {
       const firstName = player.first_name || player.user?.first_name || 'Player';
+      const lastName = player.last_name || player.user?.last_name || '';
+      const status = player.is_waitlisted ? 'Waitlisted' : 'Confirmed';
 
       return `
-      <div class="player-item">
-        <span class="player-name">${utils.escapeHtml(firstName)}</span>
+      <div class="player-item ${player.is_waitlisted ? 'player-item--waitlisted' : ''}">
+        <span class="player-name">${utils.escapeHtml(`${firstName} ${lastName}`.trim())}</span>
+        <span class="player-status ${player.is_waitlisted ? 'player-status--waitlisted' : ''}">${status}</span>
       </div>
     `;
     }).join('');
@@ -766,6 +779,13 @@ const events = {
       if (joinButton && !joinButton.disabled) {
         state.registeringGameId = joinButton.dataset.gameId;
         DOM.gameTitleSpan.textContent = joinButton.dataset.gameTitle;
+        const isFull = joinButton.dataset.isFull === 'true';
+        DOM.registrationKicker.textContent = isFull ? 'Waitlist signup' : 'Secure your spot';
+        DOM.registrationAction.textContent = isFull ? 'Join the waitlist for' : 'Join';
+        DOM.registrationSubtitle.textContent = isFull
+          ? 'This game is full. Register for the waitlist; the earliest waitlisted player gets the next open spot.'
+          : 'Fill in your details and we’ll register you for this game instantly.';
+        DOM.registrationSubmit.textContent = isFull ? 'Join Waitlist' : 'Register for Game';
         modal.open(joinButton);
         return;
       }

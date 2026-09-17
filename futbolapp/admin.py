@@ -4,6 +4,7 @@ from datetime import datetime
 from .models import League, Season, Team, Player, Matchday, Match, PlayerStatistic, LeagueStanding, Profile, Tournament, Group, TournamentMatch, TournamentPlayerStatistic, GroupStanding, PickupGame, PickupGamePlayer
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
+from django.utils.html import format_html
 
 class TeamInline(admin.TabularInline):
     model = Team
@@ -307,20 +308,26 @@ class RefereeAdmin(admin.ModelAdmin):
 class PickupGamePlayerInline(admin.TabularInline):
     model = PickupGamePlayer
     extra = 0
-    fields = ('first_name', 'last_name', 'email', 'phone_number', 'player_level')
+    fields = ('first_name', 'last_name', 'email', 'phone_number', 'player_level', 'registration_status')
     verbose_name = 'Player'
-    verbose_name_plural = 'Registered Players'
-    readonly_fields = ()  # Allow editing of all fields
+    verbose_name_plural = 'Confirmed Players and Waitlist'
+    readonly_fields = ('registration_status',)
 
-    def has_add_permission(self, request, obj=None):
-        has_permission = super().has_add_permission(request, obj)
-        if not has_permission or obj is None:
-            return has_permission
-        return obj.players.count() < obj.max_players
+    @admin.display(description='Status')
+    def registration_status(self, obj):
+        return registration_status_badge(obj)
+
+
+def registration_status_badge(obj):
+    if not obj or not obj.pk:
+        return 'Assigned when saved'
+    if obj.is_waitlisted:
+        return format_html('<strong style="color:#a64b00">{}</strong>', 'Waitlisted')
+    return format_html('<strong style="color:#18733b">{}</strong>', 'Confirmed')
 
 @admin.register(PickupGame)
 class PickupGameAdmin(admin.ModelAdmin):
-    list_display = ('get_game_title', 'get_formatted_schedule', 'location', 'current_players', 'max_players', 'price', 'is_active')
+    list_display = ('get_game_title', 'get_formatted_schedule', 'location', 'current_players', 'max_players', 'waitlist_count', 'price', 'is_active')
     list_filter = ('is_active', 'location')
     search_fields = ('location',)
     date_hierarchy = 'time'
@@ -332,7 +339,7 @@ class PickupGameAdmin(admin.ModelAdmin):
         }),
         ('Players', {
             'fields': ('max_players', 'current_players'),
-            'description': 'Maximum players allowed and current registered players. Registered players are listed below.'
+            'description': 'Current players counts confirmed registrations. Waitlisted players are listed below and are promoted when a spot opens.'
         }),
         ('Settings', {
             'fields': ('is_active',)
@@ -340,6 +347,10 @@ class PickupGameAdmin(admin.ModelAdmin):
     )
     
     readonly_fields = ('current_players',)
+
+    @admin.display(description='Waitlisted')
+    def waitlist_count(self, obj):
+        return sum(player.is_waitlisted for player in obj.players.all())
     
     def get_game_title(self, obj):
         """Generate a title for the game based on location and date"""
@@ -377,7 +388,16 @@ class PickupGameAdmin(admin.ModelAdmin):
 
 @admin.register(PickupGamePlayer)
 class PickupGamePlayerAdmin(admin.ModelAdmin):
-    list_display = ('first_name', 'last_name', 'email', 'phone_number', 'player_level', 'pickup_game')
-    list_filter = ('pickup_game',)
+    list_display = ('first_name', 'last_name', 'registration_status', 'email', 'phone_number', 'player_level', 'pickup_game')
+    list_filter = ('pickup_game', 'is_waitlisted')
     search_fields = ('first_name', 'last_name', 'email', 'phone_number')
-    readonly_fields = ()
+    fields = ('pickup_game', 'first_name', 'last_name', 'email', 'phone_number', 'player_level', 'registration_status')
+    readonly_fields = ('registration_status',)
+
+    @admin.display(description='Status')
+    def registration_status(self, obj):
+        return registration_status_badge(obj)
+
+    def delete_queryset(self, request, queryset):
+        for player in queryset:
+            player.delete()

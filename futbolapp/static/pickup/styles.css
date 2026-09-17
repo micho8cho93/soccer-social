@@ -287,6 +287,10 @@ select {
   font-size: 1rem;
 }
 
+.spots-left--full {
+  color: #a64b00;
+}
+
 .game-title {
   font-size: 2rem;
   letter-spacing: 0.04em;
@@ -629,12 +633,34 @@ select {
   border: 1px solid var(--border-soft);
   border-radius: 12px;
   padding: 0.8rem 0.95rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.player-item--waitlisted {
+  border-color: #e8aa70;
+  background: #fff1e3;
 }
 
 .player-name {
   color: var(--text-primary);
   font-weight: 400;
   letter-spacing: 0.04em;
+}
+
+.player-status {
+  border-radius: 999px;
+  padding: 0.3rem 0.6rem;
+  background: #e5f5e8;
+  color: #18733b;
+  white-space: nowrap;
+}
+
+.player-status--waitlisted {
+  background: #ffd8b5;
+  color: #87400e;
 }
 
 button:focus-visible,

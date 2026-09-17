@@ -442,7 +442,7 @@ class PickupGame(models.Model):
         if self.end_time and self.end_time <= self.time:
             errors['end_time'] = 'End time must be after the start time.'
 
-        existing_players = self.players.count() if self.pk else self.current_players
+        existing_players = self.players.filter(is_waitlisted=False).count() if self.pk else self.current_players
         if self.max_players < existing_players:
             errors['max_players'] = 'Maximum players cannot be lower than the number of registered players.'
 
@@ -450,11 +450,32 @@ class PickupGame(models.Model):
             raise ValidationError(errors)
 
     def sync_current_players(self, save=True):
-        current_count = self.players.count() if self.pk else 0
+        current_count = self.players.filter(is_waitlisted=False).count() if self.pk else 0
         self.current_players = current_count
         if save and self.pk:
             PickupGame.objects.filter(pk=self.pk).update(current_players=current_count)
         return current_count
+
+    def promote_waitlist(self):
+        """Fill open spots in registration order while the game row is locked."""
+        confirmed_count = self.players.filter(is_waitlisted=False).count()
+        open_spots = max(self.max_players - confirmed_count, 0)
+        if open_spots:
+            next_ids = list(self.players.filter(is_waitlisted=True)
+                            .order_by('pk').values_list('pk', flat=True)[:open_spots])
+            if next_ids:
+                self.players.filter(pk__in=next_ids).update(is_waitlisted=False)
+        self.sync_current_players()
+
+    def save(self, *args, **kwargs):
+        old_max = type(self).objects.filter(pk=self.pk).values_list('max_players', flat=True).first() if self.pk else None
+        max_is_being_saved = kwargs.get('update_fields') is None or 'max_players' in kwargs['update_fields']
+        with transaction.atomic():
+            super().save(*args, **kwargs)
+            if old_max is not None and max_is_being_saved and self.max_players > old_max:
+                locked_game = type(self).objects.select_for_update().get(pk=self.pk)
+                locked_game.promote_waitlist()
+                self.current_players = locked_game.current_players
 
     @property
     def spots_remaining(self):
@@ -487,6 +508,7 @@ class PickupGamePlayer(models.Model):
         choices=PLAYER_LEVEL_CHOICES,
         default=PLAYER_LEVEL_INTERMEDIATE,
     )
+    is_waitlisted = models.BooleanField(default=False, db_index=True)
 
     def clean(self):
         errors = {}
@@ -494,31 +516,36 @@ class PickupGamePlayer(models.Model):
         if not self.pickup_game_id:
             errors['pickup_game'] = 'A pickup game is required.'
         else:
-            available_slots = self.pickup_game.players.exclude(pk=self.pk).count()
             if not self.pickup_game.is_active:
                 errors['pickup_game'] = 'Cannot register for an inactive pickup game.'
-            elif available_slots >= self.pickup_game.max_players:
-                errors['pickup_game'] = 'This pickup game is full.'
 
         if errors:
             raise ValidationError(errors)
 
     def save(self, *args, **kwargs):
-        old_pickup_game_id = None
-        if self.pk:
-            old_pickup_game_id = type(self).objects.filter(pk=self.pk).values_list('pickup_game_id', flat=True).first()
-
         with transaction.atomic():
-            self.pickup_game = PickupGame.objects.select_for_update().get(pk=self.pickup_game_id)
-            self.full_clean()
-            super().save(*args, **kwargs)
-
+            old_record = type(self).objects.filter(pk=self.pk).values('pickup_game_id', 'is_waitlisted').first() if self.pk else None
+            old_pickup_game_id = old_record['pickup_game_id'] if old_record else None
             affected_game_ids = {self.pickup_game_id}
-            if old_pickup_game_id and old_pickup_game_id != self.pickup_game_id:
+            if old_pickup_game_id:
                 affected_game_ids.add(old_pickup_game_id)
+            games = {game.pk: game for game in PickupGame.objects.select_for_update()
+                     .filter(pk__in=affected_game_ids).order_by('pk')}
+            self.pickup_game = games[self.pickup_game_id]
+            self.full_clean()
 
-            for game in PickupGame.objects.select_for_update().filter(pk__in=affected_game_ids):
-                game.sync_current_players()
+            if old_record and old_pickup_game_id == self.pickup_game_id:
+                self.is_waitlisted = old_record['is_waitlisted']
+            else:
+                confirmed_count = self.pickup_game.players.filter(is_waitlisted=False).count()
+                queue_exists = self.pickup_game.players.filter(is_waitlisted=True).exists()
+                self.is_waitlisted = confirmed_count >= self.pickup_game.max_players or queue_exists
+
+            if kwargs.get('update_fields') is not None:
+                kwargs['update_fields'] = set(kwargs['update_fields']) | {'is_waitlisted'}
+            super().save(*args, **kwargs)
+            for game in games.values():
+                game.promote_waitlist()
 
     def delete(self, *args, **kwargs):
         pickup_game_id = self.pickup_game_id
@@ -526,7 +553,7 @@ class PickupGamePlayer(models.Model):
         with transaction.atomic():
             pickup_game = PickupGame.objects.select_for_update().get(pk=pickup_game_id)
             super().delete(*args, **kwargs)
-            pickup_game.sync_current_players()
+            pickup_game.promote_waitlist()
 
     def __str__(self):
         return f"{self.first_name} {self.last_name} - {self.pickup_game}"

@@ -50,9 +50,9 @@
     <div class="modal-overlay"></div>
     <div class="modal-content">
       <button class="modal-close" id="modal-close" aria-label="Close modal">&times;</button>
-      <p class="modal-kicker">Secure your spot</p>
-      <h2 class="modal-title" id="registration-title">Join <span id="game-title-modal"></span></h2>
-      <p class="modal-subtitle">Fill in your details and we’ll register you for this game instantly.</p>
+      <p class="modal-kicker" id="registration-kicker">Secure your spot</p>
+      <h2 class="modal-title" id="registration-title"><span id="registration-action">Join</span> <span id="game-title-modal"></span></h2>
+      <p class="modal-subtitle" id="registration-subtitle">Fill in your details and we’ll register you for this game instantly.</p>
 
       <form class="registration-form" id="registration-form" novalidate>
         <div class="form-row">
@@ -97,7 +97,7 @@
           </div>
         </div>
 
-        <button type="submit" class="submit-btn">Register for Game</button>
+        <button type="submit" class="submit-btn" id="registration-submit">Register for Game</button>
         <p class="form-feedback" id="registration-feedback" role="alert"></p>
       </form>
     </div>

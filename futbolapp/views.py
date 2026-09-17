@@ -765,8 +765,18 @@ class PickupGameViewSet(viewsets.ModelViewSet):
     permission_classes = [StaffWritePermission]
 
 class PickupGamePlayerViewSet(viewsets.ModelViewSet):
-    queryset = PickupGamePlayer.objects.all()
+    queryset = PickupGamePlayer.objects.all().order_by('is_waitlisted', 'pk')
     serializer_class = PickupGamePlayerSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        game_id = self.request.query_params.get('pickup_game')
+        if game_id is None:
+            return queryset
+        try:
+            return queryset.filter(pickup_game_id=int(game_id))
+        except ValueError:
+            return queryset.none()
     
     def perform_destroy(self, instance):
         instance.delete()

@@ -5,6 +5,8 @@ from futbolapp.models import League, Season, Team, Player, Matchday, Match, Leag
 from datetime import date, datetime, timedelta
 from django.utils import timezone
 from django.core.exceptions import ValidationError
+from django.contrib.admin.sites import AdminSite
+from futbolapp.admin import PickupGamePlayerAdmin
 import pytz
 
 
@@ -53,6 +55,34 @@ class PickupLocationApiTests(TestCase):
 
         payload['location_map_url'] = ''
         self.assertEqual(self.client.post('/futbol/api/games/', payload).status_code, 400)
+
+
+@override_settings(STATICFILES_STORAGE='django.contrib.staticfiles.storage.StaticFilesStorage')
+class PickupWaitlistAdminTests(TestCase):
+    def test_admin_marks_waitlisted_players_and_bulk_removal_promotes_next(self):
+        staff = User.objects.create_superuser(username='pickup-admin', email='admin@example.com', password='password')
+        self.client.force_login(staff)
+        game = PickupGame.objects.create(location='Madrid', time=timezone.now() + timedelta(days=1), max_players=1)
+        confirmed = PickupGamePlayer.objects.create(
+            pickup_game=game, first_name='First', last_name='Player',
+            email='first@example.com', phone_number='123456789',
+        )
+        waiting = PickupGamePlayer.objects.create(
+            pickup_game=game, first_name='Second', last_name='Player',
+            email='second@example.com', phone_number='987654321',
+        )
+
+        response = self.client.get('/admin/futbolapp/pickupgameplayer/')
+        self.assertContains(response, 'Confirmed')
+        self.assertContains(response, 'Waitlisted')
+        game_response = self.client.get(f'/admin/futbolapp/pickupgame/{game.pk}/change/')
+        self.assertContains(game_response, 'Confirmed')
+        self.assertContains(game_response, 'Waitlisted')
+
+        player_admin = PickupGamePlayerAdmin(PickupGamePlayer, AdminSite())
+        player_admin.delete_queryset(None, PickupGamePlayer.objects.filter(pk=confirmed.pk))
+        waiting.refresh_from_db()
+        self.assertFalse(waiting.is_waitlisted)
 
 @override_settings(STATICFILES_STORAGE='django.contrib.staticfiles.storage.StaticFilesStorage')
 class ViewTests(TestCase):
@@ -196,8 +226,8 @@ class ViewTests(TestCase):
         response = self.client.get(reverse('update_roster_view', args=[self.match.id]))
         self.assertEqual(response.status_code, 403)
 
-    def test_pickup_game_api_blocks_registration_when_full(self):
-        """Pickup API should reject registrations once a game reaches max_players."""
+    def test_pickup_game_api_waitlists_registration_when_full(self):
+        """Pickup API should accept a waitlist signup without inflating confirmed count."""
         start_time = datetime.now().replace(tzinfo=self.utc)
         game = PickupGame.objects.create(
             location="Madrid",
@@ -221,12 +251,29 @@ class ViewTests(TestCase):
             'email': 'second@example.com',
             'phone_number': '987654321',
             'player_level': 'genius',
+            'is_waitlisted': False,
         })
 
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.json()['pickup_game'][0], 'This pickup game is full.')
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(response.json()['is_waitlisted'])
 
         game.refresh_from_db()
+        self.assertEqual(game.current_players, 1)
+        player = PickupGamePlayer.objects.get(pk=response.json()['id'])
+        self.assertTrue(player.is_waitlisted)
+
+        players_response = self.client.get(f'/futbol/api/game-players/?pickup_game={game.pk}')
+        statuses = {item['id']: item['is_waitlisted'] for item in players_response.json()}
+        self.assertTrue(statuses[player.pk])
+
+        game_payload = next(item for item in self.client.get('/futbol/api/games/').json() if item['id'] == game.pk)
+        self.assertEqual(game_payload['waitlist_count'], 1)
+
+        confirmed_id = game.players.get(is_waitlisted=False).pk
+        self.assertEqual(self.client.delete(f'/futbol/api/game-players/{confirmed_id}/').status_code, 204)
+        player.refresh_from_db()
+        game.refresh_from_db()
+        self.assertFalse(player.is_waitlisted)
         self.assertEqual(game.current_players, 1)
 
     def test_pickup_game_api_updates_count_on_join_and_cancel(self):

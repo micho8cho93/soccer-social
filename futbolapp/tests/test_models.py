@@ -151,11 +151,11 @@ class ModelTests(TestCase):
         self.assertEqual(standing4.position, 1)
         self.assertEqual(standing1.position, 2)
 
-    def test_pickup_game_player_limit_enforced(self):
-        """Pickup games should reject registrations past max_players."""
+    def test_pickup_game_waitlist_promotes_earliest_player(self):
+        """Full games queue new players and fill a cancelled spot in signup order."""
         start_time = datetime.now().replace(tzinfo=self.utc)
         game = PickupGame.objects.create(location="Madrid", time=start_time, end_time=start_time + timedelta(hours=1), max_players=1)
-        PickupGamePlayer.objects.create(
+        confirmed = PickupGamePlayer.objects.create(
             pickup_game=game,
             first_name="Alex",
             last_name="One",
@@ -164,18 +164,53 @@ class ModelTests(TestCase):
             player_level="intermediate",
         )
 
-        with self.assertRaises(ValidationError):
-            PickupGamePlayer.objects.create(
-                pickup_game=game,
-                first_name="Alex",
-                last_name="Two",
-                email="alex2@example.com",
-                phone_number="987654321",
-                player_level="genius",
-            )
+        first_waitlisted = PickupGamePlayer.objects.create(
+            pickup_game=game,
+            first_name="Alex",
+            last_name="Two",
+            email="alex2@example.com",
+            phone_number="987654321",
+            player_level="genius",
+        )
+        second_waitlisted = PickupGamePlayer.objects.create(
+            pickup_game=game,
+            first_name="Alex",
+            last_name="Three",
+            email="alex3@example.com",
+            phone_number="123123123",
+            player_level="beginner",
+        )
 
         game.refresh_from_db()
         self.assertEqual(game.current_players, 1)
+        self.assertFalse(confirmed.is_waitlisted)
+        self.assertTrue(first_waitlisted.is_waitlisted)
+        self.assertTrue(second_waitlisted.is_waitlisted)
+
+        confirmed.delete()
+        first_waitlisted.refresh_from_db()
+        second_waitlisted.refresh_from_db()
+        game.refresh_from_db()
+        self.assertFalse(first_waitlisted.is_waitlisted)
+        self.assertTrue(second_waitlisted.is_waitlisted)
+        self.assertEqual(game.current_players, 1)
+
+    def test_increasing_capacity_promotes_waitlisted_player(self):
+        start_time = datetime.now().replace(tzinfo=self.utc)
+        game = PickupGame.objects.create(location="Madrid", time=start_time, max_players=1)
+        for index in range(2):
+            PickupGamePlayer.objects.create(
+                pickup_game=game, first_name="Alex", last_name=str(index),
+                email=f"alex{index}@example.com", phone_number="123456789",
+            )
+        waiting = game.players.get(is_waitlisted=True)
+
+        game.max_players = 2
+        game.save(update_fields=['max_players'])
+        waiting.refresh_from_db()
+        game.refresh_from_db()
+        self.assertFalse(waiting.is_waitlisted)
+        self.assertEqual(game.current_players, 2)
 
     def test_pickup_game_player_count_updates_on_create_and_delete(self):
         """Pickup game counts should increment on join and decrement on cancel."""

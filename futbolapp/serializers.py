@@ -29,12 +29,17 @@ class PickupGamePlayerSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PickupGamePlayer
-        fields = ['id', 'pickup_game', 'first_name', 'last_name', 'email', 'phone_number', 'player_level']
+        fields = ['id', 'pickup_game', 'first_name', 'last_name', 'email', 'phone_number', 'player_level', 'is_waitlisted']
+        read_only_fields = ['is_waitlisted']
 
 class PickupGameSerializer(serializers.ModelSerializer):
     players = PickupGamePlayerSerializer(many=True, read_only=True)
     spots_remaining = serializers.IntegerField(read_only=True)
     is_full = serializers.BooleanField(read_only=True)
+    waitlist_count = serializers.SerializerMethodField()
+
+    def get_waitlist_count(self, game):
+        return sum(player.is_waitlisted for player in game.players.all())
 
     def validate(self, attrs):
         instance = getattr(self, 'instance', None)
@@ -52,5 +57,5 @@ class PickupGameSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = PickupGame
-        fields = ['id', 'location', 'location_map_url', 'time', 'end_time', 'max_players', 'current_players', 'spots_remaining', 'is_full', 'price', 'is_active', 'players']
-        read_only_fields = ['current_players', 'spots_remaining', 'is_full', 'players']
+        fields = ['id', 'location', 'location_map_url', 'time', 'end_time', 'max_players', 'current_players', 'spots_remaining', 'is_full', 'waitlist_count', 'price', 'is_active', 'players']
+        read_only_fields = ['current_players', 'spots_remaining', 'is_full', 'waitlist_count', 'players']
